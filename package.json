@@ -15,11 +15,12 @@
     "dev:tauri": "cd src-tauri && cargo tauri dev",
     "build:tauri": "cd src-tauri && cargo tauri build",
     "build:sidecar": "node scripts/build-sidecar.js",
+    "prefetch": "node scripts/prefetch-pkg-node.js",
     "pkg": "node scripts/rename-sidecar.js",
-    "pkg:macos-arm64": "pkg dist/bundle.cjs --targets node22-macos-arm64 --output src-tauri/binaries/deeplens-sidecar-aarch64-apple-darwin",
-    "pkg:macos-x64": "pkg dist/bundle.cjs --targets node22-macos-x64 --output src-tauri/binaries/deeplens-sidecar-x86_64-apple-darwin",
-    "pkg:linux-x64": "pkg dist/bundle.cjs --targets node22-linux-x64 --output src-tauri/binaries/deeplens-sidecar-x86_64-unknown-linux-gnu",
-    "pkg:win-x64": "pkg dist/bundle.cjs --targets node22-win-x64 --output src-tauri/binaries/deeplens-sidecar-x86_64-pc-windows-msvc.exe"
+    "pkg:macos-arm64": "node scripts/prefetch-pkg-node.js --target node22-macos-arm64 && pkg dist/bundle.cjs --targets node22-macos-arm64 --output src-tauri/binaries/deeplens-sidecar-aarch64-apple-darwin",
+    "pkg:macos-x64": "node scripts/prefetch-pkg-node.js --target node22-macos-x64 && pkg dist/bundle.cjs --targets node22-macos-x64 --output src-tauri/binaries/deeplens-sidecar-x86_64-apple-darwin",
+    "pkg:linux-x64": "node scripts/prefetch-pkg-node.js --target node22-linux-x64 && pkg dist/bundle.cjs --targets node22-linux-x64 --output src-tauri/binaries/deeplens-sidecar-x86_64-unknown-linux-gnu",
+    "pkg:win-x64": "node scripts/prefetch-pkg-node.js --target node22-win-x64 && pkg dist/bundle.cjs --targets node22-win-x64 --output src-tauri/binaries/deeplens-sidecar-x86_64-pc-windows-msvc.exe"
   },
   "keywords": [
     "code-analysis",

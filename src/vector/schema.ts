@@ -5,7 +5,7 @@
 export const CREATE_DOC_CHUNKS = `
 CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING vec0(
   chunk_id INTEGER PRIMARY KEY,
-  embedding float[2048] distance_metric=cosine
+  embedding float[4096] distance_metric=cosine
 );
 `;
 

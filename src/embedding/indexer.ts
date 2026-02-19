@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import chalk from "chalk";
+import ignore, { type Ignore } from "ignore";
 import { VectorStore } from "../vector/store.js";
 import type { ChunkWithEmbedding } from "../vector/store.js";
 import { EmbeddingClient } from "./client.js";
@@ -22,8 +23,6 @@ export interface IndexOptions {
   indexCode?: boolean;
   /** Source code file extensions to include. */
   codeExtensions?: string[];
-  /** Directories to exclude from code scanning. */
-  excludeDirs?: string[];
 }
 
 interface FileEntry {
@@ -61,6 +60,32 @@ const DEFAULT_EXCLUDE_DIRS = new Set([
 
 const EMBED_BATCH_SIZE = 20;
 
+// ── Ignore rules ──────────────────────────────────
+
+/**
+ * Load ignore rules for indexing.
+ * Uses DEFAULT_EXCLUDE_DIRS + .deeplensignore only.
+ * Does NOT read .gitignore — indexing needs differ from git tracking
+ * (e.g. .deeplens/ is git-ignored but must be scanned for docs).
+ */
+async function loadIgnoreRules(projectRoot: string): Promise<Ignore> {
+  const ig = ignore();
+
+  // Always ignore common heavy/irrelevant directories
+  for (const dir of DEFAULT_EXCLUDE_DIRS) {
+    ig.add(dir);
+  }
+
+  // Read .deeplensignore (user-defined indexing exclusions)
+  const deeplensIgnorePath = path.join(projectRoot, ".deeplensignore");
+  if (existsSync(deeplensIgnorePath)) {
+    const content = await fs.readFile(deeplensIgnorePath, "utf-8");
+    ig.add(content);
+  }
+
+  return ig;
+}
+
 // ── Indexer ────────────────────────────────────────
 
 export class Indexer {
@@ -92,7 +117,7 @@ export class Indexer {
     // Scan files
     const files: FileEntry[] = [];
 
-    // Scan markdown docs
+    // Scan markdown docs (only skip VitePress artifacts, not .deeplensignore)
     const mdFiles = await scanDirectory(docsDir, ".md");
     for (const absPath of mdFiles) {
       files.push({
@@ -102,17 +127,15 @@ export class Indexer {
       });
     }
 
-    // Optionally scan source code
+    // Optionally scan source code (apply DEFAULT_EXCLUDE_DIRS + .deeplensignore)
     if (options.indexCode) {
       const extensions = options.codeExtensions ?? DEFAULT_CODE_EXTENSIONS;
-      const excludeDirs = options.excludeDirs
-        ? new Set(options.excludeDirs)
-        : DEFAULT_EXCLUDE_DIRS;
+      const ig = await loadIgnoreRules(options.projectRoot);
 
       const codeFiles = await scanCodeFiles(
         options.projectRoot,
         extensions,
-        excludeDirs,
+        ig,
       );
       for (const absPath of codeFiles) {
         files.push({
@@ -240,6 +263,9 @@ function printProgress(current: number, total: number, skipped: number): void {
   );
 }
 
+/** Directories to skip when scanning docs (VitePress artifacts). */
+const DOCS_SKIP_DIRS = new Set(["node_modules", ".vitepress"]);
+
 async function scanDirectory(dir: string, ext: string): Promise<string[]> {
   const results: string[] = [];
   if (!existsSync(dir)) return results;
@@ -248,7 +274,9 @@ async function scanDirectory(dir: string, ext: string): Promise<string[]> {
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      results.push(...(await scanDirectory(fullPath, ext)));
+      if (!DOCS_SKIP_DIRS.has(entry.name)) {
+        results.push(...(await scanDirectory(fullPath, ext)));
+      }
     } else if (entry.name.endsWith(ext)) {
       results.push(fullPath);
     }
@@ -259,21 +287,27 @@ async function scanDirectory(dir: string, ext: string): Promise<string[]> {
 async function scanCodeFiles(
   rootDir: string,
   extensions: string[],
-  excludeDirs: Set<string>,
+  ig: Ignore,
 ): Promise<string[]> {
   const results: string[] = [];
 
   async function walk(dir: string): Promise<void> {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const relativePath = path.relative(rootDir, fullPath);
+
+      // Check against ignore rules
+      if (ig.ignores(relativePath)) {
+        continue;
+      }
+
       if (entry.isDirectory()) {
-        if (!excludeDirs.has(entry.name)) {
-          await walk(path.join(dir, entry.name));
-        }
+        await walk(fullPath);
       } else {
         const ext = path.extname(entry.name);
         if (extensions.includes(ext)) {
-          results.push(path.join(dir, entry.name));
+          results.push(fullPath);
         }
       }
     }

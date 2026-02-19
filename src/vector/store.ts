@@ -81,9 +81,8 @@ export class VectorStore {
           chunk.startLine ?? null,
           chunk.endLine ?? null,
         );
-        const chunkId = result.lastInsertRowid;
-        const vecBuffer = Buffer.from(chunk.embedding.buffer);
-        insertVec.run(chunkId, vecBuffer);
+        const chunkId = BigInt(result.lastInsertRowid);
+        insertVec.run(chunkId, chunk.embedding);
       }
     });
 
@@ -126,8 +125,6 @@ export class VectorStore {
     topK: number = 5,
     sourceType?: string,
   ): SearchResult[] {
-    const vecBuffer = Buffer.from(queryVector.buffer);
-
     // sqlite-vec KNN query
     const knnQuery = `
       SELECT c.chunk_id, c.distance, m.source_path, m.source_type,
@@ -139,7 +136,7 @@ export class VectorStore {
       ORDER BY c.distance
     `;
 
-    const params: unknown[] = [vecBuffer, topK];
+    const params: unknown[] = [queryVector, topK];
     if (sourceType) {
       params.push(sourceType);
     }

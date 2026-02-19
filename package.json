@@ -1,0 +1,35 @@
+{
+  "name": "deeplens",
+  "version": "0.1.0",
+  "description": "Deep code analysis and documentation generator powered by Claude Agent SDK",
+  "type": "module",
+  "main": "dist/cli/index.js",
+  "bin": {
+    "deeplens": "dist/bin/deeplens.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/bin/deeplens.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "code-analysis",
+    "documentation",
+    "claude",
+    "agent-sdk"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.47",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "dotenv": "^17.3.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+*.tsbuildinfo
+.deeplens/
+.DS_Store
+.specstory/
+.cursorindexingignore

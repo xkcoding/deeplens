@@ -3,7 +3,7 @@ import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import { loadConfig } from "../config/env.js";
+import { loadConfig, validateSiliconFlowConfig } from "../config/env.js";
 import { runExplorer } from "../agent/explorer.js";
 import { runGenerator } from "../agent/generator.js";
 import { reviewOutline } from "../outline/review.js";
@@ -12,6 +12,10 @@ import { scaffoldVitePress } from "../vitepress/scaffold.js";
 import { generateSidebar } from "../vitepress/sidebar.js";
 import { SIDEBAR_PLACEHOLDER } from "../vitepress/scaffold.js";
 import { startPreviewServer } from "../vitepress/server.js";
+import { Indexer } from "../embedding/indexer.js";
+import { EmbeddingClient } from "../embedding/client.js";
+import { VectorStore } from "../vector/store.js";
+import { startApiServer } from "../api/server.js";
 import type { Outline } from "../outline/types.js";
 
 const program = new Command();
@@ -176,6 +180,105 @@ program
       open: options.open,
     });
   });
+
+// ── index ────────────────────────────────────────────────────────────
+program
+  .command("index <project-path>")
+  .description("Index documentation and code for semantic search")
+  .option("--code", "Also index source code files")
+  .action(async (projectPath: string, options: { code?: boolean }) => {
+    const config = loadConfig();
+    validateSiliconFlowConfig(config);
+
+    const absProjectPath = path.resolve(projectPath);
+    const dbPath = path.join(absProjectPath, ".deeplens", "deeplens.db");
+
+    console.log(chalk.cyan("Starting indexing pipeline..."));
+    const start = Date.now();
+
+    const indexer = new Indexer(config, dbPath);
+    try {
+      await indexer.index({
+        projectRoot: absProjectPath,
+        indexCode: options.code,
+      });
+    } finally {
+      indexer.close();
+    }
+
+    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+    console.log(chalk.dim(`Total time: ${elapsed}s`));
+  });
+
+// ── serve ────────────────────────────────────────────────────────────
+program
+  .command("serve [project-path]")
+  .description("Start API server and VitePress preview")
+  .option("--api-port <number>", "API server port", parseInt)
+  .option("--docs-port <number>", "VitePress preview port", parseInt)
+  .action(
+    async (
+      projectPath: string | undefined,
+      options: { apiPort?: number; docsPort?: number },
+    ) => {
+      const config = loadConfig();
+      validateSiliconFlowConfig(config);
+
+      const absProjectPath = path.resolve(projectPath ?? process.cwd());
+      const dbPath = path.join(absProjectPath, ".deeplens", "deeplens.db");
+      const docsDir = path.join(absProjectPath, ".deeplens", "docs");
+
+      if (!existsSync(dbPath)) {
+        console.error(
+          chalk.red(
+            `Vector database not found: ${dbPath}\n` +
+              'Run "deeplens index <project-path>" first.',
+          ),
+        );
+        process.exit(1);
+      }
+
+      if (!existsSync(docsDir)) {
+        console.error(
+          chalk.red(
+            `Documentation directory not found: ${docsDir}\n` +
+              'Run "deeplens analyze <project-path>" first to generate documentation.',
+          ),
+        );
+        process.exit(1);
+      }
+
+      // Start API server
+      const store = new VectorStore(dbPath);
+      const embeddingClient = new EmbeddingClient(config);
+
+      const apiServer = await startApiServer({
+        store,
+        embeddingClient,
+        config,
+        projectPath: absProjectPath,
+        port: options.apiPort,
+      });
+
+      // Start VitePress preview
+      console.log(chalk.cyan("Starting VitePress preview server..."));
+      const vitepressPromise = startPreviewServer(docsDir, {
+        port: options.docsPort,
+      });
+
+      // Graceful shutdown
+      const shutdown = () => {
+        console.log(chalk.dim("\nShutting down..."));
+        apiServer.close();
+        store.close();
+        process.exit(0);
+      };
+      process.on("SIGINT", shutdown);
+      process.on("SIGTERM", shutdown);
+
+      await vitepressPromise;
+    },
+  );
 
 // ── Sidebar injection helper ─────────────────────────────────────────
 async function injectSidebar(

@@ -1,0 +1,252 @@
+@import "tailwindcss";
+
+/*
+ * DeepLens Design System Tokens
+ * Converted from ui/design-system/tailwind-preset.ts to Tailwind CSS v4 @theme format
+ */
+
+@theme {
+  /* ─── Colors: Primary (Orange) ─────────────────────────── */
+  --color-primary-50: #FFF7ED;
+  --color-primary-100: #FFEDD5;
+  --color-primary-200: #FED7AA;
+  --color-primary-300: #FDBA74;
+  --color-primary-400: #FB923C;
+  --color-primary-500: #F97316;
+  --color-primary-600: #EA580C;
+  --color-primary-700: #C2410C;
+  --color-primary-800: #9A3412;
+  --color-primary-900: #7C2D12;
+  --color-primary-950: #431407;
+  --color-primary: #F97316;
+
+  /* ─── Colors: Secondary (Amber) ────────────────────────── */
+  --color-secondary-50: #FFFBEB;
+  --color-secondary-100: #FEF3C7;
+  --color-secondary-200: #FDE68A;
+  --color-secondary-300: #FCD34D;
+  --color-secondary-400: #FBBF24;
+  --color-secondary-500: #F59E0B;
+  --color-secondary-600: #D97706;
+  --color-secondary-700: #B45309;
+  --color-secondary-800: #92400E;
+  --color-secondary-900: #78350F;
+  --color-secondary: #F59E0B;
+
+  /* ─── Colors: Neutral (Stone) ──────────────────────────── */
+  --color-neutral-0: #FFFFFF;
+  --color-neutral-50: #FAFAF9;
+  --color-neutral-100: #F5F5F4;
+  --color-neutral-200: #E7E5E4;
+  --color-neutral-300: #D6D3D1;
+  --color-neutral-400: #A8A29E;
+  --color-neutral-500: #78716C;
+  --color-neutral-600: #57534E;
+  --color-neutral-700: #44403C;
+  --color-neutral-800: #292524;
+  --color-neutral-850: #1F1E1D;
+  --color-neutral-900: #1C1917;
+  --color-neutral-950: #0C0A09;
+
+  /* ─── Colors: Semantic ─────────────────────────────────── */
+  --color-success: #16A34A;
+  --color-success-light: #4ADE80;
+  --color-success-bg: #F0FDF4;
+  --color-success-bg-dark: #052E16;
+
+  --color-warning: #D97706;
+  --color-warning-light: #FBBF24;
+  --color-warning-bg: #FFFBEB;
+  --color-warning-bg-dark: #422006;
+
+  --color-error: #DC2626;
+  --color-error-light: #F87171;
+  --color-error-bg: #FEF2F2;
+  --color-error-bg-dark: #450A0A;
+
+  --color-info: #2563EB;
+  --color-info-light: #60A5FA;
+  --color-info-bg: #EFF6FF;
+  --color-info-bg-dark: #172554;
+
+  /* ─── Colors: Agent States ─────────────────────────────── */
+  --color-agent-idle: #A8A29E;
+  --color-agent-exploring: #F97316;
+  --color-agent-waiting: #FBBF24;
+  --color-agent-generating: #F97316;
+  --color-agent-indexing: #2563EB;
+  --color-agent-ready: #16A34A;
+  --color-agent-error: #DC2626;
+
+  /* ─── Typography ───────────────────────────────────────── */
+  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Noto Sans Mono", "SF Mono", monospace;
+
+  /* ─── Box Shadows ──────────────────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.08), 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-md: 0 4px 6px rgba(28, 25, 23, 0.07), 0 2px 4px rgba(28, 25, 23, 0.04);
+  --shadow-lg: 0 10px 15px rgba(28, 25, 23, 0.08), 0 4px 6px rgba(28, 25, 23, 0.04);
+  --shadow-xl: 0 20px 25px rgba(28, 25, 23, 0.08), 0 8px 10px rgba(28, 25, 23, 0.03);
+  --shadow-glow-primary: 0 0 20px rgba(249, 115, 22, 0.15);
+  --shadow-glow-success: 0 0 12px rgba(22, 163, 74, 0.2);
+  --shadow-inner: inset 0 2px 4px rgba(28, 25, 23, 0.06);
+  --shadow-dark-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-dark-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-dark-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-dark-lg: 0 10px 15px rgba(0, 0, 0, 0.35), 0 4px 6px rgba(0, 0, 0, 0.2);
+  --shadow-dark-xl: 0 20px 25px rgba(0, 0, 0, 0.4), 0 8px 10px rgba(0, 0, 0, 0.2);
+
+  /* ─── Z-Index Scale ────────────────────────────────────── */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 20;
+  --z-sticky: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-tooltip: 80;
+  --z-max: 99;
+
+  /* ─── Transitions ──────────────────────────────────────── */
+  --transition-duration-instant: 75ms;
+  --transition-duration-fast: 150ms;
+  --transition-duration-normal: 250ms;
+  --transition-duration-slow: 350ms;
+  --transition-duration-slower: 500ms;
+
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ─── Layout ───────────────────────────────────────────── */
+  --width-panel-nav: 240px;
+  --width-panel-nav-collapsed: 48px;
+  --width-panel-divider: 4px;
+  --height-header: 48px;
+  --height-chat-widget: 360px;
+
+  /* ─── Screens (Desktop breakpoints) ────────────────────── */
+  --breakpoint-compact: 800px;
+  --breakpoint-standard: 1024px;
+  --breakpoint-wide: 1280px;
+  --breakpoint-ultrawide: 1536px;
+
+  /* ─── Keyframe Animations ──────────────────────────────── */
+  --animate-fade-in: fade-in 250ms ease-out;
+  --animate-fade-out: fade-out 200ms ease-in;
+  --animate-slide-up: slide-up 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-slide-down: slide-down 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-scale-in: scale-in 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-pulse-orange: pulse-orange 2s ease-in-out infinite;
+  --animate-pulse-amber: pulse-amber 1.5s ease-in-out infinite;
+  --animate-flow-gradient: flow-gradient 3s linear infinite;
+  --animate-skeleton-shimmer: skeleton-shimmer 1.5s ease-in-out infinite;
+  --animate-spin: spin 1s linear infinite;
+  --animate-bounce-dot: bounce-dot 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse-orange {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(249, 115, 22, 0); }
+}
+
+@keyframes pulse-amber {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes flow-gradient {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bounce-dot {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ─── Custom Utilities ─────────────────────────────────────── */
+
+@utility bg-skeleton {
+  background: linear-gradient(90deg, var(--color-neutral-200) 25%, var(--color-neutral-100) 50%, var(--color-neutral-200) 75%);
+  background-size: 200% 100%;
+}
+
+@utility bg-flow-gradient {
+  background: linear-gradient(90deg, #F97316, #FB923C, #FDBA74, #FB923C, #F97316);
+  background-size: 200% 100%;
+}
+
+@utility border-l-thought {
+  border-left-width: 3px;
+  border-image: linear-gradient(to bottom, #FB923C, #EA580C) 1;
+}
+
+@utility border-l-tool {
+  border-left-width: 3px;
+  border-left-color: #2563EB;
+}
+
+@utility border-l-success {
+  border-left-width: 3px;
+  border-left-color: #16A34A;
+}
+
+@utility border-l-error {
+  border-left-width: 3px;
+  border-left-color: #DC2626;
+}
+
+@utility border-l-warning {
+  border-left-width: 3px;
+  border-left-color: #D97706;
+}
+
+/* ─── Base Layer ───────────────────────────────────────────── */
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

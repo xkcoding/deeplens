@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui-org/nicegui/refs/heads/main/.github/tauri.conf.json",
+  "productName": "DeepLens",
+  "version": "0.1.0",
+  "identifier": "com.deeplens.app",
+  "build": {
+    "frontendDist": "../dist-ui",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "cd ../ui && npm run dev",
+    "beforeBuildCommand": "cd ../ui && npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "DeepLens",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 768,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* ws://localhost:*; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://localhost:*; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": [
+      "binaries/deeplens-sidecar"
+    ]
+  }
+}

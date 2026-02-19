@@ -8,3 +8,16 @@ dist/
 .specstory/
 .cursorindexingignore
 .history/
+
+# Tauri
+src-tauri/binaries/deeplens-sidecar-*
+src-tauri/target/
+src-tauri/gen/
+
+# Frontend
+dist-ui/
+ui/node_modules/
+ui/dist/
+ui/dist-src/
+ui/dist-node/
+ui/*.tsbuildinfo

@@ -3,6 +3,7 @@ import { createExplorerServer } from "./tools.js";
 import { getExplorerPrompt } from "../prompts/explorer.js";
 import { parseOutline } from "../outline/parser.js";
 import type { Outline } from "../outline/types.js";
+import type { AgentEventCallback } from "./events.js";
 
 const MAX_RETRIES = 2;
 
@@ -10,9 +11,16 @@ const MAX_RETRIES = 2;
  * Run the exploration Agent ("Code Archaeologist").
  * Calls query() with explorer prompt + MCP server (read-only tools).
  * Returns the validated outline or throws on failure.
+ *
+ * @param projectRoot - Absolute path to the project root
+ * @param options.onEvent - Optional callback for SSE event dispatch (sidecar mode)
  */
-export async function runExplorer(projectRoot: string): Promise<Outline> {
+export async function runExplorer(
+  projectRoot: string,
+  options?: { onEvent?: AgentEventCallback },
+): Promise<Outline> {
   let lastError = "";
+  const onEvent = options?.onEvent;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const prompt =
@@ -20,7 +28,7 @@ export async function runExplorer(projectRoot: string): Promise<Outline> {
         ? "Analyze the codebase and produce a knowledge outline."
         : `Your previous output failed validation:\n\n${lastError}\n\nPlease fix the issues and produce a valid JSON outline. Output ONLY the corrected JSON.`;
 
-    const rawOutput = await runExplorerQuery(projectRoot, prompt);
+    const rawOutput = await runExplorerQuery(projectRoot, prompt, onEvent);
 
     const result = parseOutline(rawOutput);
     if (result.success) {
@@ -29,9 +37,12 @@ export async function runExplorer(projectRoot: string): Promise<Outline> {
 
     lastError = result.error;
     if (attempt < MAX_RETRIES) {
-      console.error(
-        `\nOutline validation failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...\n${result.error}`,
-      );
+      const msg = `Outline validation failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...\n${result.error}`;
+      if (onEvent) {
+        onEvent({ type: "error", data: { message: msg, recoverable: true } });
+      } else {
+        console.error(`\n${msg}`);
+      }
     }
   }
 
@@ -57,6 +68,7 @@ export async function runExplorer(projectRoot: string): Promise<Outline> {
 async function runExplorerQuery(
   projectRoot: string,
   prompt: string,
+  onEvent?: AgentEventCallback,
 ): Promise<string> {
   let resultText = "";
 
@@ -77,10 +89,21 @@ async function runExplorerQuery(
         // Process content blocks from the assistant message
         for (const block of message.message.content) {
           if (block.type === "text") {
-            process.stdout.write(block.text);
+            if (onEvent) {
+              onEvent({ type: "thought", data: { content: block.text } });
+            } else {
+              process.stdout.write(block.text);
+            }
           } else if (block.type === "tool_use") {
-            const args = JSON.stringify(block.input);
-            console.log(`\n\uD83D\uDD27 ${block.name}(${args})`);
+            if (onEvent) {
+              onEvent({
+                type: "tool_start",
+                data: { tool: block.name, args: block.input },
+              });
+            } else {
+              const args = JSON.stringify(block.input);
+              console.log(`\n\uD83D\uDD27 ${block.name}(${args})`);
+            }
           }
         }
         break;
@@ -96,7 +119,11 @@ async function runExplorerQuery(
           const detail = errorList.length > 0
             ? errorList.join("; ")
             : `subtype=${message.subtype}`;
-          throw new Error(`Explorer agent error (${message.subtype}): ${detail}`);
+          const errMsg = `Explorer agent error (${message.subtype}): ${detail}`;
+          if (onEvent) {
+            onEvent({ type: "error", data: { message: errMsg, recoverable: false } });
+          }
+          throw new Error(errMsg);
         }
         break;
       }

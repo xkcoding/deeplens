@@ -16,6 +16,7 @@ import { Indexer } from "../embedding/indexer.js";
 import { EmbeddingClient } from "../embedding/client.js";
 import { VectorStore } from "../vector/store.js";
 import { startApiServer } from "../api/server.js";
+import { startSidecarServer } from "../api/sidecar-server.js";
 import type { Outline } from "../outline/types.js";
 
 const program = new Command();
@@ -279,6 +280,33 @@ program
       await vitepressPromise;
     },
   );
+
+// ── sidecar ──────────────────────────────────────────────────────────
+program
+  .command("sidecar [project-path]")
+  .description("Start sidecar HTTP server mode (used by Tauri desktop app)")
+  .option("--port <number>", "API server port", parseInt)
+  .action(async (projectPath: string | undefined, options: { port?: number }) => {
+    const config = loadConfig();
+    const absProjectPath = projectPath ? path.resolve(projectPath) : undefined;
+
+    const server = await startSidecarServer({
+      config,
+      projectPath: absProjectPath,
+      port: options.port ?? 54321,
+    });
+
+    console.log(chalk.green(`Sidecar server running on port ${server.port}`));
+
+    // Graceful shutdown
+    const shutdown = () => {
+      console.log(chalk.dim("\nShutting down sidecar..."));
+      server.close();
+      process.exit(0);
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+  });
 
 // ── Sidebar injection helper ─────────────────────────────────────────
 async function injectSidebar(

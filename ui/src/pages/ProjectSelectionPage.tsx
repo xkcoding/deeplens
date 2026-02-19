@@ -1,8 +1,13 @@
 import { useState } from "react";
-import { FolderOpen, Clock, Telescope, Plus, AlertCircle } from "lucide-react";
+import { FolderOpen, Clock, Telescope, Plus, AlertCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ProjectInfo } from "@/types/events";
+
+const isTauri =
+  typeof window !== "undefined" &&
+  !!(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
 
 interface ProjectSelectionPageProps {
   onProjectSelect: (path: string) => void;
@@ -13,10 +18,14 @@ export function ProjectSelectionPage({
 }: ProjectSelectionPageProps) {
   const [projects] = useState<ProjectInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [manualPath, setManualPath] = useState("");
 
   const handlePickDirectory = async () => {
+    if (!isTauri) {
+      setError("Directory picker is only available in the desktop app. Enter a path below.");
+      return;
+    }
     try {
-      // Dynamic import to avoid SSR/build issues when Tauri is not available
       const { invoke } = await import("@tauri-apps/api/core");
       const path = await invoke<string | null>("pick_directory");
       if (path) {
@@ -24,6 +33,13 @@ export function ProjectSelectionPage({
       }
     } catch (err) {
       setError((err as Error).message || "Failed to open directory picker");
+    }
+  };
+
+  const handleManualOpen = () => {
+    const trimmed = manualPath.trim();
+    if (trimmed) {
+      onProjectSelect(trimmed);
     }
   };
 
@@ -44,7 +60,7 @@ export function ProjectSelectionPage({
           </div>
 
           {/* Open Project Button */}
-          <div className="mb-8 flex justify-center">
+          <div className="mb-4 flex justify-center">
             <Button
               onClick={handlePickDirectory}
               className="gap-2 bg-primary-500 text-white hover:bg-primary-600"
@@ -54,6 +70,30 @@ export function ProjectSelectionPage({
               Open Project
             </Button>
           </div>
+
+          {/* Manual path input (always shown in browser, shown after error in Tauri) */}
+          {(!isTauri || error) && (
+            <div className="mx-auto mb-8 flex max-w-md items-center gap-2">
+              <Input
+                value={manualPath}
+                onChange={(e) => setManualPath(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleManualOpen();
+                }}
+                placeholder="/path/to/your/project"
+                className="h-10 flex-1 text-sm"
+              />
+              <Button
+                onClick={handleManualOpen}
+                disabled={!manualPath.trim()}
+                size="sm"
+                className="gap-1"
+              >
+                Go
+                <ArrowRight className="size-3.5" />
+              </Button>
+            </div>
+          )}
 
           {/* Error */}
           {error && (

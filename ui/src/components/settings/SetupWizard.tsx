@@ -18,12 +18,16 @@ interface SetupWizardProps {
 export function SetupWizard({ open, onComplete }: SetupWizardProps) {
   const [step, setStep] = useState(0);
   const [claudeKey, setClaudeKey] = useState("");
+  const [claudeBaseUrl, setClaudeBaseUrl] = useState("");
   const [siliconKey, setSiliconKey] = useState("");
+  const [siliconBaseUrl, setSiliconBaseUrl] = useState("");
 
   const handleFinish = () => {
     const config: Record<string, string> = {};
     if (claudeKey) config.claude_api_key = claudeKey;
+    if (claudeBaseUrl) config.claude_base_url = claudeBaseUrl;
     if (siliconKey) config.siliconflow_api_key = siliconKey;
+    if (siliconBaseUrl) config.siliconflow_base_url = siliconBaseUrl;
     onComplete(config);
   };
 
@@ -46,29 +50,46 @@ export function SetupWizard({ open, onComplete }: SetupWizardProps) {
       </div>
     </div>,
 
-    // Step 1: Claude API Key
+    // Step 1: Claude API Settings
     <div key="claude" className="space-y-4 py-2">
       <div className="text-center">
         <h3 className="text-base font-semibold text-neutral-800">
-          Claude API Key
+          Claude API Configuration
         </h3>
         <p className="mt-1 text-xs text-neutral-500">
           Required for code analysis and documentation generation
         </p>
       </div>
-      <div className="space-y-1.5">
-        <label className="text-xs font-medium text-neutral-600">API Key</label>
-        <Input
-          type="password"
-          value={claudeKey}
-          onChange={(e) => setClaudeKey(e.target.value)}
-          placeholder="sk-ant-..."
-          className="h-9 text-sm"
-          autoFocus
-        />
-        <p className="text-[10px] text-neutral-400">
-          Get your key from console.anthropic.com
-        </p>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-neutral-600">API Key</label>
+          <Input
+            type="password"
+            value={claudeKey}
+            onChange={(e) => setClaudeKey(e.target.value)}
+            placeholder="sk-ant-..."
+            className="h-9 text-sm"
+            autoFocus
+          />
+          <p className="text-[10px] text-neutral-400">
+            Get your key from console.anthropic.com
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-neutral-600">
+            Base URL <span className="text-neutral-400">(optional)</span>
+          </label>
+          <Input
+            type="text"
+            value={claudeBaseUrl}
+            onChange={(e) => setClaudeBaseUrl(e.target.value)}
+            placeholder="https://api.anthropic.com"
+            className="h-9 text-sm"
+          />
+          <p className="text-[10px] text-neutral-400">
+            Leave empty for default. Set if using a proxy or compatible API.
+          </p>
+        </div>
       </div>
     </div>,
 
@@ -76,27 +97,41 @@ export function SetupWizard({ open, onComplete }: SetupWizardProps) {
     <div key="silicon" className="space-y-4 py-2">
       <div className="text-center">
         <h3 className="text-base font-semibold text-neutral-800">
-          SiliconFlow API Key
+          SiliconFlow API Configuration
         </h3>
         <p className="mt-1 text-xs text-neutral-500">
           Optional. Enables embedding-based Q&A after analysis.
         </p>
       </div>
-      <div className="space-y-1.5">
-        <label className="text-xs font-medium text-neutral-600">
-          API Key (optional)
-        </label>
-        <Input
-          type="password"
-          value={siliconKey}
-          onChange={(e) => setSiliconKey(e.target.value)}
-          placeholder="sk-..."
-          className="h-9 text-sm"
-          autoFocus
-        />
-        <p className="text-[10px] text-neutral-400">
-          Skip this step if you don't need the Q&A feature
-        </p>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-neutral-600">
+            API Key <span className="text-neutral-400">(optional)</span>
+          </label>
+          <Input
+            type="password"
+            value={siliconKey}
+            onChange={(e) => setSiliconKey(e.target.value)}
+            placeholder="sk-..."
+            className="h-9 text-sm"
+            autoFocus
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-neutral-600">
+            Base URL <span className="text-neutral-400">(optional)</span>
+          </label>
+          <Input
+            type="text"
+            value={siliconBaseUrl}
+            onChange={(e) => setSiliconBaseUrl(e.target.value)}
+            placeholder="https://api.siliconflow.cn/v1"
+            className="h-9 text-sm"
+          />
+          <p className="text-[10px] text-neutral-400">
+            Skip this step if you don't need the Q&A feature
+          </p>
+        </div>
       </div>
     </div>,
 

@@ -48,6 +48,23 @@
   --color-neutral-900: #1C1917;
   --color-neutral-950: #0C0A09;
 
+  /* ─── shadcn/ui Compatibility Tokens ──────────────────── */
+  --color-background: #FFFFFF;
+  --color-foreground: #1C1917;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #1C1917;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #1C1917;
+  --color-muted: #F5F5F4;
+  --color-muted-foreground: #78716C;
+  --color-accent: #F5F5F4;
+  --color-accent-foreground: #1C1917;
+  --color-destructive: #DC2626;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #E7E5E4;
+  --color-input: #E7E5E4;
+  --color-ring: #F97316;
+
   /* ─── Colors: Semantic ─────────────────────────────────── */
   --color-success: #16A34A;
   --color-success-light: #4ADE80;

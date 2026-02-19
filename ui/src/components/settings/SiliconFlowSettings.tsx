@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 
 const EMBEDDING_MODELS = [
-  { value: "Qwen/Qwen3-Embedding-8B", label: "Qwen3-Embedding-8B" },
+  { value: "Qwen/Qwen3-Embedding-8B", label: "Qwen3-Embedding-8B (default)" },
   { value: "BAAI/bge-m3", label: "BGE-M3" },
   { value: "BAAI/bge-large-zh-v1.5", label: "BGE-Large-ZH v1.5" },
 ];
@@ -33,7 +33,7 @@ export function SiliconFlowSettings({ config, onSave }: SiliconFlowSettingsProps
 
   const baseUrl = config.siliconflow_base_url ?? "https://api.siliconflow.cn/v1";
   const apiKey = config.siliconflow_api_key ?? "";
-  const embeddingModel = config.siliconflow_embedding_model ?? "BAAI/bge-m3";
+  const embeddingModel = config.siliconflow_embedding_model ?? "Qwen/Qwen3-Embedding-8B";
   const llmModel = config.siliconflow_llm_model ?? "deepseek-ai/DeepSeek-V3";
 
   const handleTestConnection = async () => {

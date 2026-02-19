@@ -58,16 +58,32 @@ export function validateOutline(data: unknown): {
     return { success: true, data: result.data, errors: [] };
   }
 
+  // Use the raw data to resolve array indices to actual domain/sub_concept IDs
+  const raw = data as Record<string, unknown> | undefined;
+  const kg = Array.isArray((raw as Record<string, unknown>)?.knowledge_graph)
+    ? ((raw as Record<string, unknown>).knowledge_graph as Array<Record<string, unknown>>)
+    : [];
+
   const errors: ValidationError[] = result.error.issues.map((issue) => {
     const pathStr = issue.path.join(".");
-    // Extract domain/sub_concept ids from path
     const domainMatch = pathStr.match(/knowledge_graph\.(\d+)/);
     const subMatch = pathStr.match(/sub_concepts\.(\d+)/);
-    return {
-      domainId: domainMatch ? `path-index-${domainMatch[1]}` : undefined,
-      subConceptId: subMatch ? `path-index-${subMatch[1]}` : undefined,
-      message: issue.message,
-    };
+
+    let domainId: string | undefined;
+    if (domainMatch) {
+      const idx = Number(domainMatch[1]);
+      domainId = (kg[idx]?.id as string) ?? undefined;
+    }
+
+    let subConceptId: string | undefined;
+    if (domainMatch && subMatch) {
+      const dIdx = Number(domainMatch[1]);
+      const sIdx = Number(subMatch[1]);
+      const subs = kg[dIdx]?.sub_concepts as Array<Record<string, unknown>> | undefined;
+      subConceptId = (subs?.[sIdx]?.id as string) ?? undefined;
+    }
+
+    return { domainId, subConceptId, message: issue.message };
   });
 
   return { success: false, errors };

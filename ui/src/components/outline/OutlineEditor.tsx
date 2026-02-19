@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -42,6 +42,12 @@ export function OutlineEditor({
   const [outline, setOutline] = useState<OutlineData>(initialOutline);
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
+
+  // Sync when initialOutline prop changes (e.g., re-explore)
+  useEffect(() => {
+    setOutline(initialOutline);
+    setErrors([]);
+  }, [initialOutline]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

@@ -280,7 +280,7 @@ function SubConceptNode({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 rounded px-2 py-1 hover:bg-neutral-50",
+        "group flex items-center gap-1.5 rounded px-2 py-1 hover:bg-neutral-50",
         hasError && "ring-1 ring-error",
       )}
     >

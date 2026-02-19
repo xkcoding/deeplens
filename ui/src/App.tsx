@@ -12,7 +12,7 @@ import { ChatWidget } from "@/components/chat/ChatWidget";
 import { useSidecar } from "@/hooks/useSidecar";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { useConfig } from "@/hooks/useConfig";
-import type { EventFilters, NavItem } from "@/types/events";
+import type { EventFilters, NavItem, Outline } from "@/types/events";
 import type { OutlineData } from "@/components/outline/OutlineValidation";
 
 const EMPTY_NAV: NavItem[] = [];
@@ -113,7 +113,7 @@ function App() {
         })),
         ignored_files: data.ignored_files ?? [],
       };
-      confirmOutline(currentProject, backendOutline as never);
+      confirmOutline(currentProject, backendOutline as Outline);
       setOutlineData(null);
     },
     [currentProject, confirmOutline],

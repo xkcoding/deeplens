@@ -1,3 +1,5 @@
+import { readdirSync, existsSync } from "node:fs";
+import path from "node:path";
 import type { Outline, Domain } from "../outline/types.js";
 
 interface SidebarItem {
@@ -7,61 +9,53 @@ interface SidebarItem {
   items?: SidebarItem[];
 }
 
-type SubConcept = {
-  name: string;
-  description: string;
-  files: { path: string; role: string }[];
-  sub_concepts?: SubConcept[];
-};
-
-function filePathToLink(filePath: string): string {
-  // Strip .md extension for VitePress links
-  return "/" + filePath.replace(/\.md$/, "");
+/**
+ * Convert a filename like "explorer-agent.md" to a readable title "Explorer Agent".
+ */
+function fileNameToTitle(fileName: string): string {
+  return fileName
+    .replace(/\.md$/, "")
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
-function buildSubConceptGroup(sub: SubConcept): SidebarItem {
-  const items: SidebarItem[] = sub.files.map((f) => ({
-    text: f.role,
-    link: filePathToLink(f.path),
-  }));
-
-  if (sub.sub_concepts) {
-    for (const nested of sub.sub_concepts) {
-      items.push(buildSubConceptGroup(nested));
-    }
-  }
-
-  return {
-    text: sub.name,
-    collapsed: true,
-    items,
-  };
-}
-
-function buildDomainGroup(domain: Domain): SidebarItem {
+/**
+ * Build sidebar group for a domain by scanning its actual docs directory.
+ * Falls back to outline metadata if the directory doesn't exist.
+ */
+function buildDomainGroup(domain: Domain, docsDir: string): SidebarItem {
+  const domainDir = path.join(docsDir, "domains", domain.id);
   const items: SidebarItem[] = [];
 
-  // First file is treated as the hub (index/overview)
-  if (domain.files.length > 0) {
-    items.push({
-      text: "Overview",
-      link: filePathToLink(domain.files[0].path),
-    });
+  if (existsSync(domainDir)) {
+    // Scan actual generated files
+    const files = readdirSync(domainDir)
+      .filter((f) => f.endsWith(".md"))
+      .sort();
 
-    // Remaining files are spokes
-    for (let i = 1; i < domain.files.length; i++) {
+    // index.md first as "Overview"
+    if (files.includes("index.md")) {
       items.push({
-        text: domain.files[i].role,
-        link: filePathToLink(domain.files[i].path),
+        text: "Overview",
+        link: `/domains/${domain.id}/`,
       });
     }
-  }
 
-  // Sub-concepts become nested groups
-  if (domain.sub_concepts) {
-    for (const sub of domain.sub_concepts) {
-      items.push(buildSubConceptGroup(sub));
+    // Remaining .md files as spokes
+    for (const file of files) {
+      if (file === "index.md") continue;
+      items.push({
+        text: fileNameToTitle(file),
+        link: `/domains/${domain.id}/${file.replace(/\.md$/, "")}`,
+      });
     }
+  } else {
+    // Fallback: just link to domain hub
+    items.push({
+      text: "Overview",
+      link: `/domains/${domain.id}/`,
+    });
   }
 
   return {
@@ -73,12 +67,15 @@ function buildDomainGroup(domain: Domain): SidebarItem {
 
 /**
  * Generate VitePress sidebar configuration from the outline.
- * Maps domains -> collapsible groups with hub + spoke items.
+ * Scans the actual docs directory to build accurate navigation links.
  */
 export function generateSidebar(
   outline: Outline,
+  docsDir: string,
 ): Record<string, unknown> {
-  const groups: SidebarItem[] = outline.knowledge_graph.map(buildDomainGroup);
+  const groups: SidebarItem[] = outline.knowledge_graph.map((d) =>
+    buildDomainGroup(d, docsDir),
+  );
 
   return {
     "/": groups,

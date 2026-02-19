@@ -44,6 +44,7 @@ You have access to these MCP tools (and ONLY these tools):
 - **mcp__deeplens__read_file_snippet(path, start_line?, max_lines?)** — Read a portion of a large file.
 - **mcp__deeplens__grep_search(query, path?)** — Search for patterns to understand code relationships.
 - **mcp__deeplens__write_file(path, content)** — Write a documentation file. Path is relative to the output docs directory.
+- **mcp__deeplens__render_mermaid(diagram)** — Render a structured JSON diagram into valid Mermaid code. Supports flowchart, sequence, and class diagram types. Returns syntactically correct Mermaid code.
 
 ## Documentation Structure: Hub-and-Spoke
 
@@ -96,27 +97,72 @@ For each domain, generate:
 
 ## Mermaid Diagram Rules
 
-### Architecture-level diagram (in architecture.md):
-- Use a flowchart or C4-style diagram showing all domains and their relationships
-- Use business concept names: "User Authentication" not "AuthModule"
-- Show data flow direction between domains
+**CRITICAL: You MUST use the \`render_mermaid\` tool to generate ALL Mermaid diagrams. NEVER write Mermaid DSL syntax by hand.** The tool guarantees correct syntax, escaping, and formatting.
 
-### Hub diagrams (in domain index.md):
-- Use sequence diagrams or flowcharts showing cross-module data flow
-- Show interactions between this domain's components and external domains
-- Use business language: "User Strategy" not "AbstractUserStrategyImpl"
-- Keep to 5-10 nodes maximum for readability
+### How to use render_mermaid:
 
-### Spoke diagrams (in component docs):
-- Use class diagrams, flowcharts, or sequence diagrams as appropriate
-- Show local component interactions within the module
-- Keep focused and simple: 3-7 nodes
+Call \`mcp__deeplens__render_mermaid\` with a JSON \`diagram\` object. Three diagram types are supported:
 
-### Diagram Constraints:
-- Always wrap in \`\`\`mermaid code fences
+**Flowchart example** (for architecture and data flow):
+\`\`\`json
+{
+  "type": "flowchart",
+  "direction": "TD",
+  "nodes": [
+    { "id": "cli", "label": "CLI Entry", "shape": "round" },
+    { "id": "explorer", "label": "Explorer Agent", "shape": "rect" },
+    { "id": "generator", "label": "Generator Agent", "shape": "rect" }
+  ],
+  "edges": [
+    { "from": "cli", "to": "explorer", "label": "runs" },
+    { "from": "cli", "to": "generator", "label": "runs", "style": "dotted" }
+  ],
+  "subgraphs": [
+    { "id": "agents", "label": "Agent Core", "nodeIds": ["explorer", "generator"] }
+  ]
+}
+\`\`\`
+
+**Sequence diagram example** (for interactions):
+\`\`\`json
+{
+  "type": "sequence",
+  "participants": [
+    { "id": "cli", "label": "CLI" },
+    { "id": "agent", "label": "Explorer Agent" },
+    { "id": "mcp", "label": "MCP Server" }
+  ],
+  "messages": [
+    { "from": "cli", "to": "agent", "label": "query()", "activate": true },
+    { "from": "agent", "to": "mcp", "label": "list_files()" },
+    { "from": "mcp", "to": "agent", "label": "file tree", "type": "dotted" },
+    { "from": "agent", "to": "cli", "label": "outline JSON", "deactivate": true }
+  ]
+}
+\`\`\`
+
+**Class diagram example** (for structure):
+\`\`\`json
+{
+  "type": "class",
+  "classes": [
+    { "name": "ExplorerAgent", "methods": ["+ run(projectPath)"] },
+    { "name": "MCPServer", "members": ["- tools: Tool[]"], "methods": ["+ handle(request)"] }
+  ],
+  "relations": [
+    { "from": "ExplorerAgent", "to": "MCPServer", "type": "dependency", "label": "uses" }
+  ]
+}
+\`\`\`
+
+The tool returns valid Mermaid code. Wrap the returned code in \`\`\`mermaid fences when writing to documentation files.
+
+### Diagram guidelines:
+- **Architecture-level** (architecture.md): Use flowchart showing all domains and their relationships. Use business concept names.
+- **Hub diagrams** (domain index.md): Use sequence or flowchart showing cross-module data flow. Keep to 5-10 nodes.
+- **Spoke diagrams** (component docs): Use class, flowchart, or sequence as appropriate. Keep to 3-7 nodes.
 - Use descriptive node labels (business terms, not raw class names)
 - Keep diagrams readable — if too complex, split into multiple diagrams
-- Test that Mermaid syntax is valid (no unescaped special characters in labels)
 
 ## Smart Simplification Rules
 

@@ -9,6 +9,7 @@ import { readFile } from "../tools/read-file.js";
 import { readFileSnippet } from "../tools/read-file-snippet.js";
 import { grepSearch } from "../tools/grep-search.js";
 import { writeFile } from "../tools/write-file.js";
+import { renderMermaid } from "../tools/render-mermaid.js";
 
 function createReadOnlyTools(projectRoot: string) {
   const listFilesTool = tool(
@@ -92,8 +93,74 @@ export function createGeneratorServer(projectRoot: string) {
     { annotations: { readOnly: false, destructive: false } },
   );
 
+  const renderMermaidTool = tool(
+    "render_mermaid",
+    "Render a structured diagram description into valid Mermaid code. Accepts a JSON object describing a flowchart, sequence, or class diagram. Returns syntactically correct Mermaid code with proper escaping of special characters and sanitized node IDs. ALWAYS use this tool instead of writing Mermaid code by hand.",
+    {
+      diagram: z.discriminatedUnion("type", [
+        z.object({
+          type: z.literal("flowchart"),
+          direction: z.enum(["TD", "LR", "RL", "BT"]).optional().describe("Graph direction (default TD)"),
+          nodes: z.array(z.object({
+            id: z.string().describe("Unique node ID"),
+            label: z.string().describe("Display label"),
+            shape: z.enum(["rect", "round", "diamond", "stadium", "cylinder", "circle"]).optional(),
+          })),
+          edges: z.array(z.object({
+            from: z.string().describe("Source node ID"),
+            to: z.string().describe("Target node ID"),
+            label: z.string().optional(),
+            style: z.enum(["solid", "dotted", "thick"]).optional(),
+          })),
+          subgraphs: z.array(z.object({
+            id: z.string(),
+            label: z.string(),
+            nodeIds: z.array(z.string()),
+          })).optional(),
+        }),
+        z.object({
+          type: z.literal("sequence"),
+          participants: z.array(z.object({
+            id: z.string().describe("Participant ID"),
+            label: z.string().optional().describe("Display label (if different from ID)"),
+          })),
+          messages: z.array(z.object({
+            from: z.string(),
+            to: z.string(),
+            label: z.string(),
+            type: z.enum(["solid", "dotted", "solid_arrow", "dotted_arrow"]).optional(),
+            activate: z.boolean().optional(),
+            deactivate: z.boolean().optional(),
+          })),
+          notes: z.array(z.object({
+            over: z.array(z.string()),
+            text: z.string(),
+          })).optional(),
+        }),
+        z.object({
+          type: z.literal("class"),
+          classes: z.array(z.object({
+            name: z.string(),
+            members: z.array(z.string()).optional().describe("Fields like '- name: string'"),
+            methods: z.array(z.string()).optional().describe("Methods like '+ validate()'"),
+          })),
+          relations: z.array(z.object({
+            from: z.string(),
+            to: z.string(),
+            type: z.enum(["inheritance", "composition", "aggregation", "dependency", "association"]).optional(),
+            label: z.string().optional(),
+          })).optional(),
+        }),
+      ]).describe("Diagram definition with type discriminator"),
+    },
+    async ({ diagram }) => ({
+      content: [{ type: "text" as const, text: renderMermaid(diagram) }],
+    }),
+    { annotations: { readOnly: true } },
+  );
+
   return createSdkMcpServer({
     name: "deeplens",
-    tools: [...readOnlyTools, writeFileTool],
+    tools: [...readOnlyTools, writeFileTool, renderMermaidTool],
   });
 }

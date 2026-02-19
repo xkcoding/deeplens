@@ -29,12 +29,14 @@ function buildPackageJson(projectName: string): string {
     {
       name: `${projectName}-docs`,
       private: true,
+      type: "module",
       scripts: {
         "dev": "vitepress dev",
         "build": "vitepress build",
         "preview": "vitepress preview",
       },
       devDependencies: {
+        "mermaid": "11.4.1",
         "vitepress": "^1.6.3",
         "vitepress-plugin-mermaid": "^2.0.17",
       },
@@ -52,7 +54,7 @@ export async function scaffoldVitePress(
   await mkdir(vitepressDir, { recursive: true });
 
   await writeFile(
-    path.join(vitepressDir, "config.ts"),
+    path.join(vitepressDir, "config.mts"),
     buildVitePressConfig(projectName),
     "utf-8",
   );

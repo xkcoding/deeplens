@@ -65,7 +65,7 @@ async function runExplorerQuery(
     options: {
       systemPrompt: getExplorerPrompt(projectRoot),
       tools: [],
-      maxTurns: 20,
+      maxTurns: 50,
       mcpServers: { deeplens: createExplorerServer(projectRoot) },
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
@@ -89,9 +89,14 @@ async function runExplorerQuery(
         if (message.subtype === "success") {
           resultText = message.result;
         } else {
-          const errors =
-            "errors" in message ? (message.errors as string[]).join("; ") : message.subtype;
-          throw new Error(`Explorer agent error: ${errors}`);
+          const errorList =
+            "errors" in message
+              ? (message.errors as string[])
+              : [];
+          const detail = errorList.length > 0
+            ? errorList.join("; ")
+            : `subtype=${message.subtype}`;
+          throw new Error(`Explorer agent error (${message.subtype}): ${detail}`);
         }
         break;
       }

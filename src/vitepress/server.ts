@@ -1,9 +1,11 @@
 /**
- * VitePress dev server — finds available port and spawns npx vitepress dev.
+ * VitePress dev server — installs deps, finds available port, and starts dev server.
  */
 
 import { createServer } from "node:net";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import chalk from "chalk";
 
 const DEFAULT_PORT = 5173;
@@ -31,43 +33,41 @@ export async function startPreviewServer(
   docsDir: string,
   options?: { port?: number; open?: boolean },
 ): Promise<void> {
+  // Install dependencies if not already present
+  const nodeModules = path.join(docsDir, "node_modules");
+  if (!existsSync(nodeModules)) {
+    console.log(chalk.cyan("Installing VitePress dependencies..."));
+    execSync("npm install", { cwd: docsDir, stdio: "inherit" });
+  }
+
   const requestedPort = options?.port ?? DEFAULT_PORT;
   const port = await findAvailablePort(requestedPort);
 
-  const args = ["vitepress", "dev", docsDir, "--port", String(port)];
+  const args = ["vitepress", "dev", "--port", String(port)];
   if (options?.open) {
     args.push("--open");
   }
 
-  console.log(
-    chalk.cyan(`Starting VitePress dev server...`),
-  );
+  console.log(chalk.cyan("Starting VitePress dev server..."));
 
   const child = spawn("npx", args, {
+    cwd: docsDir,
     stdio: "inherit",
-    shell: true,
   });
 
-  // Forward SIGINT to the child process for clean shutdown
   const onSignal = () => {
     child.kill("SIGINT");
   };
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
 
-  console.log(
-    chalk.green(`Preview available at http://localhost:${port}`),
-  );
+  console.log(chalk.green(`Preview available at http://localhost:${port}`));
 
   return new Promise<void>((resolve, reject) => {
-    child.on("close", (code) => {
+    child.on("close", () => {
       process.off("SIGINT", onSignal);
       process.off("SIGTERM", onSignal);
-      if (code === 0 || code === null) {
-        resolve();
-      } else {
-        reject(new Error(`VitePress exited with code ${code}`));
-      }
+      resolve();
     });
 
     child.on("error", (err) => {

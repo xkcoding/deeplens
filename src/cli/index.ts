@@ -62,7 +62,7 @@ program
 
     // VitePress scaffolding + sidebar injection
     await scaffoldVitePress(docsDir, outline.project_name);
-    const sidebar = generateSidebar(outline);
+    const sidebar = generateSidebar(outline, docsDir);
     await injectSidebar(docsDir, sidebar);
 
     console.log(chalk.green("\nDocumentation generated successfully."));
@@ -146,7 +146,7 @@ program
     await runGenerator(outline, process.cwd());
 
     await scaffoldVitePress(docsDir, outline.project_name);
-    const sidebar = generateSidebar(outline);
+    const sidebar = generateSidebar(outline, docsDir);
     await injectSidebar(docsDir, sidebar);
 
     console.log(chalk.green(`\nDocumentation generated to ${docsDir}`));
@@ -182,7 +182,7 @@ async function injectSidebar(
   docsDir: string,
   sidebar: Record<string, unknown>,
 ): Promise<void> {
-  const configPath = path.join(docsDir, ".vitepress", "config.ts");
+  const configPath = path.join(docsDir, ".vitepress", "config.mts");
   const content = await readFile(configPath, "utf-8");
   const injected = content.replace(
     SIDEBAR_PLACEHOLDER,

@@ -75,11 +75,14 @@ export async function runGenerator(
       }
       case "result": {
         if (message.subtype !== "success") {
-          const errors =
+          const errorList =
             "errors" in message
-              ? (message.errors as string[]).join("; ")
-              : message.subtype;
-          throw new Error(`Generator agent error: ${errors}`);
+              ? (message.errors as string[])
+              : [];
+          const detail = errorList.length > 0
+            ? errorList.join("; ")
+            : `subtype=${message.subtype}`;
+          throw new Error(`Generator agent error (${message.subtype}): ${detail}`);
         }
         break;
       }

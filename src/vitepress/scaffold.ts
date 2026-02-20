@@ -1,5 +1,5 @@
 /**
- * VitePress scaffolding — creates .vitepress/config.ts and package.json in output dir.
+ * VitePress scaffolding — creates .vitepress/config.ts, theme files, and package.json in output dir.
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
@@ -21,6 +21,263 @@ export default withMermaid(
     },
   }),
 );
+`;
+}
+
+function buildThemeIndex(): string {
+  return `import DefaultTheme from "vitepress/theme";
+import "./custom.css";
+
+export default {
+  extends: DefaultTheme,
+};
+`;
+}
+
+function buildCustomCSS(): string {
+  return `/**
+ * DeepLens VitePress Custom Theme
+ * Orange brand palette + DeepWiki-inspired layout refinements
+ */
+
+/* ── Brand Colors: Orange Palette ─────────────────────────── */
+:root {
+  --vp-c-brand-1: #F97316;
+  --vp-c-brand-2: #EA580C;
+  --vp-c-brand-3: #C2410C;
+  --vp-c-brand-soft: rgba(249, 115, 22, 0.14);
+
+  /* Nav bar subtle adjustments */
+  --vp-nav-height: 56px;
+}
+
+/* ── Sidebar Active Link ──────────────────────────────────── */
+
+.VPSidebar .is-active > .item .link > .text {
+  color: var(--vp-c-brand-1);
+}
+
+.VPSidebar .is-active > .item .indicator {
+  background-color: var(--vp-c-brand-1);
+}
+
+/* ── Code Block Accent ────────────────────────────────────── */
+:root {
+  --vp-code-tab-active-bar-color: #F97316;
+}
+
+.vp-doc div[class*="language-"] {
+  border-left: 3px solid rgba(249, 115, 22, 0.4);
+  background-color: #fafaf9;
+}
+
+html.dark .vp-doc div[class*="language-"] {
+  background-color: #1c1917;
+  border-left-color: rgba(249, 115, 22, 0.5);
+}
+
+/* ── Badge Colors ─────────────────────────────────────────── */
+.VPBadge.tip {
+  background-color: rgba(249, 115, 22, 0.14);
+  color: #C2410C;
+}
+
+.VPBadge.warning {
+  background-color: rgba(245, 158, 11, 0.14);
+  color: #92400E;
+}
+
+/* ── DeepWiki-inspired Layout Refinements ─────────────────── */
+
+/* Content area max-width for wide screens */
+.VPDoc .container {
+  max-width: 960px;
+}
+
+@media (min-width: 1440px) {
+  .VPDoc:not(.has-aside) .container {
+    max-width: 1040px;
+  }
+
+  .VPDoc.has-aside .content-container {
+    max-width: 768px;
+  }
+}
+
+/* Sidebar font size and spacing tuning */
+.VPSidebar .group {
+  padding-bottom: 12px;
+}
+
+.VPSidebar .group .item .text {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.VPSidebar .group > .item > .text {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+/* Mermaid diagram centering */
+.vp-doc .mermaid-wrapper,
+.vp-doc pre.mermaid {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.vp-doc .mermaid-wrapper svg,
+.vp-doc pre.mermaid svg {
+  max-width: 100%;
+}
+
+/* ── Typography Polish ────────────────────────────────────── */
+.vp-doc h1 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.vp-doc h2 {
+  padding-top: 32px;
+  border-top: 1px solid var(--vp-c-divider);
+  font-weight: 600;
+}
+
+.vp-doc p {
+  line-height: 1.8;
+}
+
+/* ── Homepage Styles ──────────────────────────────────────── */
+.deeplens-home-summary {
+  font-size: 1.1em;
+  color: var(--vp-c-text-2);
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+.deeplens-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 32px;
+}
+
+.deeplens-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background-color: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-2);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.deeplens-domains {
+  list-style: none;
+  padding: 0;
+}
+
+.deeplens-domains li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.deeplens-domains li:last-child {
+  border-bottom: none;
+}
+
+.deeplens-domains a {
+  font-weight: 500;
+  color: var(--vp-c-brand-1);
+}
+
+.deeplens-domains a:hover {
+  color: var(--vp-c-brand-3);
+}
+
+.deeplens-domain-desc {
+  display: block;
+  font-size: 0.9em;
+  color: var(--vp-c-text-2);
+  margin-top: 2px;
+}
+
+/* ── Link Hover Transitions ───────────────────────────────── */
+.vp-doc a {
+  transition: color 0.15s ease;
+}
+
+.VPSidebar a {
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+/* ── Table Styling ────────────────────────────────────────── */
+.vp-doc table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 20px 0;
+}
+
+.vp-doc th {
+  background-color: var(--vp-c-brand-soft);
+  font-weight: 600;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.vp-doc tr:hover td {
+  background-color: var(--vp-c-bg-soft);
+}
+
+/* ── Inline Code ──────────────────────────────────────────── */
+.vp-doc :not(pre) > code {
+  color: var(--vp-c-brand-2);
+  background-color: var(--vp-c-brand-soft);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.9em;
+}
+
+/* ── Blockquote ───────────────────────────────────────────── */
+.vp-doc blockquote {
+  border-left-color: var(--vp-c-brand-1);
+  background-color: var(--vp-c-brand-soft);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+}
+
+/* ── Footer Attribution ───────────────────────────────────── */
+.vp-doc p:last-child em:only-child {
+  display: block;
+  text-align: center;
+  color: var(--vp-c-text-3);
+  font-size: 0.85em;
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+/* ── Custom Scrollbar (webkit) ────────────────────────────── */
+.VPSidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.VPSidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.VPSidebar::-webkit-scrollbar-thumb {
+  background-color: var(--vp-c-divider);
+  border-radius: 2px;
+}
+
+.VPSidebar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--vp-c-text-3);
+}
 `;
 }
 
@@ -51,11 +308,24 @@ export async function scaffoldVitePress(
   projectName: string,
 ): Promise<void> {
   const vitepressDir = path.join(outputDir, ".vitepress");
-  await mkdir(vitepressDir, { recursive: true });
+  const themeDir = path.join(vitepressDir, "theme");
+  await mkdir(themeDir, { recursive: true });
 
   await writeFile(
     path.join(vitepressDir, "config.mts"),
     buildVitePressConfig(projectName),
+    "utf-8",
+  );
+
+  await writeFile(
+    path.join(themeDir, "index.ts"),
+    buildThemeIndex(),
+    "utf-8",
+  );
+
+  await writeFile(
+    path.join(themeDir, "custom.css"),
+    buildCustomCSS(),
     "utf-8",
   );
 

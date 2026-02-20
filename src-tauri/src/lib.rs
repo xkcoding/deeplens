@@ -252,6 +252,7 @@ fn spawn_sidecar_with_config(
             ("openrouter_base_url", "OPENROUTER_BASE_URL"),
             ("openrouter_embedding_model", "OPENROUTER_EMBED_MODEL"),
             ("openrouter_llm_model", "OPENROUTER_LLM_MODEL"),
+            ("general.mcp_port", "DEEPLENS_SIDECAR_PORT"),
         ];
         for (config_key, env_var) in key_map {
             if let Some(v) = obj.get(*config_key) {
@@ -262,6 +263,9 @@ fn spawn_sidecar_with_config(
             }
         }
     }
+
+    // Always pass the sidecar port so MCP Server can discover it
+    cmd = cmd.env("DEEPLENS_SIDECAR_PORT", port.to_string());
 
     cmd.spawn().map_err(|e| e.to_string())
 }

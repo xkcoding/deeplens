@@ -82,7 +82,7 @@ export function SettingsDialog({ open, onOpenChange, sidecarPort, currentProject
           </TabsContent>
 
           <TabsContent value="general" className="mt-4">
-            <GeneralSettings config={config} onSave={handleSave} currentProject={currentProject} />
+            <GeneralSettings config={config} onSave={handleSave} currentProject={currentProject} sidecarPort={sidecarPort} />
           </TabsContent>
         </Tabs>
 

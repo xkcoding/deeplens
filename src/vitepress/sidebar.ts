@@ -68,14 +68,17 @@ function buildDomainGroup(domain: Domain, docsDir: string): SidebarItem {
 /**
  * Generate VitePress sidebar configuration from the outline.
  * Scans the actual docs directory to build accurate navigation links.
+ * Domain groups are numbered (e.g., "1. Authentication", "2. Data Access").
  */
 export function generateSidebar(
   outline: Outline,
   docsDir: string,
 ): Record<string, unknown> {
-  const groups: SidebarItem[] = outline.knowledge_graph.map((d) =>
-    buildDomainGroup(d, docsDir),
-  );
+  const groups: SidebarItem[] = outline.knowledge_graph.map((d, index) => {
+    const group = buildDomainGroup(d, docsDir);
+    group.text = `${index + 1}. ${group.text}`;
+    return group;
+  });
 
   return {
     "/": groups,

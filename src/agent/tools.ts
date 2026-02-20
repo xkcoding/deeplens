@@ -22,7 +22,7 @@ function createReadOnlyTools(projectRoot: string) {
     async ({ path: relPath, depth }) => ({
       content: [{ type: "text" as const, text: await listFiles(projectRoot, relPath, depth) }],
     }),
-    { annotations: { readOnly: true } },
+    { annotations: { readOnlyHint: true } },
   );
 
   const readFileTool = tool(
@@ -34,7 +34,7 @@ function createReadOnlyTools(projectRoot: string) {
     async ({ path: relPath }) => ({
       content: [{ type: "text" as const, text: await readFile(projectRoot, relPath) }],
     }),
-    { annotations: { readOnly: true } },
+    { annotations: { readOnlyHint: true } },
   );
 
   const readFileSnippetTool = tool(
@@ -48,7 +48,7 @@ function createReadOnlyTools(projectRoot: string) {
     async ({ path: relPath, start_line, max_lines }) => ({
       content: [{ type: "text" as const, text: await readFileSnippet(projectRoot, relPath, start_line, max_lines) }],
     }),
-    { annotations: { readOnly: true } },
+    { annotations: { readOnlyHint: true } },
   );
 
   const grepSearchTool = tool(
@@ -61,7 +61,7 @@ function createReadOnlyTools(projectRoot: string) {
     async ({ query, path: relPath }) => ({
       content: [{ type: "text" as const, text: await grepSearch(projectRoot, query, relPath) }],
     }),
-    { annotations: { readOnly: true } },
+    { annotations: { readOnlyHint: true } },
   );
 
   return [listFilesTool, readFileTool, readFileSnippetTool, grepSearchTool] as const;
@@ -90,7 +90,7 @@ export function createGeneratorServer(projectRoot: string) {
     async ({ path: relPath, content }) => ({
       content: [{ type: "text" as const, text: await writeFile(projectRoot, relPath, content) }],
     }),
-    { annotations: { readOnly: false, destructive: false } },
+    { annotations: { readOnlyHint: false, destructiveHint: false } },
   );
 
   const renderMermaidTool = tool(
@@ -156,7 +156,7 @@ export function createGeneratorServer(projectRoot: string) {
     async ({ diagram }) => ({
       content: [{ type: "text" as const, text: renderMermaid(diagram) }],
     }),
-    { annotations: { readOnly: true } },
+    { annotations: { readOnlyHint: true } },
   );
 
   return createSdkMcpServer({

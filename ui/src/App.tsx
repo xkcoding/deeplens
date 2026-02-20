@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { ThreePanelLayout } from "@/layouts/ThreePanelLayout";
 import { AppHeader } from "@/components/AppHeader";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
@@ -11,6 +11,7 @@ import { ChatWidget } from "@/components/chat/ChatWidget";
 import { useSidecar } from "@/hooks/useSidecar";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { useConfig } from "@/hooks/useConfig";
+import { useUpdate } from "@/hooks/useUpdate";
 import type { Outline } from "@/types/events";
 import type { OutlineData } from "@/components/outline/OutlineValidation";
 
@@ -42,9 +43,20 @@ function App() {
   const [vectorizeStatus, setVectorizeStatus] = useState<"idle" | "running" | "done">("idle");
   const [vectorizeProgress, setVectorizeProgress] = useState<{ current: number; total: number } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [exportRunning, setExportRunning] = useState(false);
+
+  // UI state cache for project switching (Task 10.6)
+  interface UIState {
+    selectedNavId?: string;
+    outlineData: OutlineData | null;
+    indexReady: boolean;
+    vectorizeStatus: "idle" | "running" | "done";
+  }
+  const uiStateCache = useRef(new Map<string, UIState>());
 
   const baseUrl = sidecar.port ? `http://127.0.0.1:${sidecar.port}` : "";
   const { state: agentState, startAnalyze, confirmOutline, clearEvents, replaySession, loadFromDisk } = useAgentStream({ baseUrl });
+  const { state: updateState, startUpdate } = useUpdate({ baseUrl });
 
   // Show setup wizard if no Claude API key configured
   useEffect(() => {
@@ -329,10 +341,100 @@ function App() {
     }
   }, [baseUrl, currentProject]);
 
+  const handleUpdate = useCallback(() => {
+    if (!currentProject) return;
+    startUpdate(currentProject);
+  }, [currentProject, startUpdate]);
+
+  const handleExport = useCallback(async () => {
+    if (!baseUrl || !currentProject) return;
+    setExportRunning(true);
+    try {
+      // Try Tauri directory picker first
+      let outputDir: string | undefined;
+      if (isTauri) {
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          const picked = await invoke<string | null>("pick_directory");
+          if (!picked) {
+            setExportRunning(false);
+            return; // User cancelled
+          }
+          outputDir = picked;
+        } catch {
+          // Fallback: export to default location
+        }
+      }
+
+      const response = await fetch(`${baseUrl}/api/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectPath: currentProject, outputDir }),
+      });
+
+      if (!response.body) throw new Error("No response body");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // Drain completed SSE blocks
+        const lastNewline = buffer.lastIndexOf("\n\n");
+        if (lastNewline >= 0) buffer = buffer.slice(lastNewline + 2);
+      }
+    } catch {
+      // Export failed
+    } finally {
+      setExportRunning(false);
+    }
+  }, [baseUrl, currentProject]);
+
   const handleReExplore = useCallback(() => {
     setOutlineData(null);
     handleStartAnalyze();
   }, [handleStartAnalyze]);
+
+  // Project switch handler (Task 10.6)
+  const handleProjectSwitch = useCallback((targetPath: string) => {
+    if (targetPath === currentProject) return;
+
+    // Save current project UI state
+    if (currentProject) {
+      uiStateCache.current.set(currentProject, {
+        selectedNavId,
+        outlineData,
+        indexReady,
+        vectorizeStatus,
+      });
+    }
+
+    // Clear current state
+    clearEvents();
+
+    // Restore cached UI state for target project (if available)
+    const cached = uiStateCache.current.get(targetPath);
+    if (cached) {
+      setSelectedNavId(cached.selectedNavId);
+      setOutlineData(cached.outlineData);
+      setIndexReady(cached.indexReady);
+      setVectorizeStatus(cached.vectorizeStatus);
+    } else {
+      setSelectedNavId(undefined);
+      setOutlineData(null);
+      setIndexReady(false);
+      setVectorizeStatus("idle");
+    }
+    setVectorizeProgress(null);
+    setPreviewLoading(false);
+
+    // Switch project
+    localStorage.setItem("deeplens-current-project", targetPath);
+    setCurrentProject(targetPath);
+  }, [currentProject, selectedNavId, outlineData, indexReady, vectorizeStatus, clearEvents]);
 
   const handleWizardComplete = useCallback(
     async (wizardConfig: Record<string, string>) => {
@@ -350,10 +452,13 @@ function App() {
   }
 
   if (!currentProject) {
-    return <ProjectSelectionPage onProjectSelect={(path) => {
-      localStorage.setItem("deeplens-current-project", path);
-      setCurrentProject(path);
-    }} />;
+    return <ProjectSelectionPage
+      sidecarPort={sidecar.port}
+      onProjectSelect={(path) => {
+        localStorage.setItem("deeplens-current-project", path);
+        setCurrentProject(path);
+      }}
+    />;
   }
 
   const projectName = currentProject.split("/").pop() || currentProject;
@@ -362,6 +467,8 @@ function App() {
     <div className="flex h-screen flex-col bg-neutral-50">
       <AppHeader
         projectName={projectName}
+        projectPath={currentProject}
+        sidecarPort={sidecar.port}
         sidecarStatus={sidecar.status}
         isAnalyzing={agentState.isRunning}
         progress={progressInfo}
@@ -370,6 +477,7 @@ function App() {
         vectorizeProgress={vectorizeProgress}
         previewLoading={previewLoading}
         openrouterConfigured={!!config.openrouter_api_key}
+        onProjectSwitch={handleProjectSwitch}
         onBackToHome={() => {
           localStorage.removeItem("deeplens-current-project");
           setCurrentProject(null);
@@ -378,6 +486,10 @@ function App() {
         onStartAnalyze={handleStartAnalyze}
         onPreview={handlePreview}
         onVectorize={handleVectorize}
+        onUpdate={handleUpdate}
+        updateRunning={updateState.isRunning}
+        onExport={handleExport}
+        exportRunning={exportRunning}
       />
       <ThreePanelLayout
         main={

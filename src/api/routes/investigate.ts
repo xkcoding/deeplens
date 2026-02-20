@@ -5,6 +5,7 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { deepSearch } from "../../search/deep.js";
+import { resolveConfig } from "../../config/project-settings.js";
 import type { VectorStore } from "../../vector/store.js";
 import type { EmbeddingClient } from "../../embedding/client.js";
 import type { DeepLensConfig } from "../../config/env.js";
@@ -33,12 +34,16 @@ export function createInvestigateRoute(
     }
 
     return streamSSE(c, async (stream) => {
+      const history = Array.isArray(body.messages) ? body.messages : undefined;
+      const effectiveConfig = resolveConfig(config, body.projectPath ?? projectPath);
+
       const result = await deepSearch(
         body.query,
         store,
         embeddingClient,
-        config,
-        projectPath,
+        effectiveConfig,
+        body.projectPath ?? projectPath,
+        history,
       );
 
       const toolsUsed: string[] = [];

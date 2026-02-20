@@ -10,6 +10,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { runExplorer } from "../../agent/explorer.js";
 import { runGenerator } from "../../agent/generator.js";
+import { registerProject, updateProject } from "../../projects/registry.js";
 import type { Outline } from "../../outline/types.js";
 
 async function appendSession(sessionPath: string, event: string, data: unknown): Promise<void> {
@@ -82,6 +83,11 @@ export function createAnalyzeRoute(
       }, 10_000);
 
       try {
+        // Register project in ~/.deeplens/projects.json (status: "analyzing")
+        await registerProject(targetPath).catch((err) =>
+          console.warn("[analyze] Failed to register project:", err),
+        );
+
         // Phase 1: Explore
         console.log("[analyze] SSE stream opened, sending explore phase start");
         const exploreStartData = { phase: "explore", status: "started" };
@@ -154,6 +160,22 @@ export function createAnalyzeRoute(
           },
         });
 
+        // Update project registry (status: "ready", lastAnalyzed, lastCommit)
+        let headCommit: string | undefined;
+        try {
+          const { getHeadCommit } = await import("../../update/diff.js");
+          headCommit = await getHeadCommit(targetPath);
+        } catch {
+          // Not a git repo or git unavailable — skip commit tracking
+        }
+        await updateProject(targetPath, {
+          status: "ready",
+          lastAnalyzed: new Date().toISOString(),
+          ...(headCommit ? { lastCommit: headCommit } : {}),
+        }).catch((err) =>
+          console.warn("[analyze] Failed to update project registry:", err),
+        );
+
         const doneData = { phase: "analyze" };
         await stream.writeSSE({
           event: "done",
@@ -161,6 +183,9 @@ export function createAnalyzeRoute(
         });
         await appendSession(sessionPath, "done", doneData);
       } catch (error) {
+        // Update project registry with error status
+        await updateProject(targetPath, { status: "error" }).catch(() => {});
+
         const errorData = { message: String(error), phase: "analyze" };
         await stream.writeSSE({
           event: "error",

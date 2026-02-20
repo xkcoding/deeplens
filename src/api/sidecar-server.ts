@@ -17,6 +17,11 @@ import { createOutlineRoute } from "./routes/outline.js";
 import { createSearchRoute } from "./routes/search.js";
 import { createInvestigateRoute } from "./routes/investigate.js";
 import { createStatusRoute } from "./routes/status.js";
+import { createUpdateRoute } from "./routes/update.js";
+import { createExportRoute } from "./routes/export.js";
+import { createVisualizeRoute } from "./routes/visualize.js";
+import { createProjectConfigRoute } from "./routes/project-config.js";
+import { createProjectsRoute } from "./routes/projects.js";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { loadConfig } from "../config/env.js";
 import type { DeepLensConfig } from "../config/env.js";
@@ -86,6 +91,12 @@ export async function startSidecarServer(
   });
   app.route("/api/analyze", analyzeCtx.app);
   app.route("/api/outline", createOutlineRoute(analyzeCtx));
+
+  // ── Incremental update, export, projects, project-config ─
+  app.route("/api/update", createUpdateRoute(projectPath));
+  app.route("/api/export", createExportRoute(projectPath));
+  app.route("/api/projects", createProjectsRoute());
+  app.route("/api/project-config", createProjectConfigRoute());
 
   // ── Session & Docs read APIs ──────────────────────
   app.get("/api/session", async (c) => {
@@ -295,6 +306,10 @@ export async function startSidecarServer(
       createInvestigateRoute(store, embeddingClient, cfg, projPath),
     );
     router.route("/api/status", createStatusRoute(store, cfg));
+    router.route(
+      "/api/visualize",
+      createVisualizeRoute(store, embeddingClient, cfg, projPath),
+    );
 
     process.on("beforeExit", () => {
       store.close();
@@ -317,6 +332,10 @@ export async function startSidecarServer(
     return qaApp.fetch(c.req.raw);
   });
   app.post("/api/investigate", async (c) => {
+    if (!qaApp) return c.json({ error: "Not vectorized yet" }, 503);
+    return qaApp.fetch(c.req.raw);
+  });
+  app.post("/api/visualize", async (c) => {
     if (!qaApp) return c.json({ error: "Not vectorized yet" }, 503);
     return qaApp.fetch(c.req.raw);
   });

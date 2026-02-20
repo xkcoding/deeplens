@@ -5,3 +5,4 @@ export { createExploreRoute } from "./explore.js";
 export { createGenerateRoute } from "./generate.js";
 export { createAnalyzeRoute } from "./analyze.js";
 export { createOutlineRoute } from "./outline.js";
+export { createExportRoute } from "./export.js";

@@ -12,20 +12,31 @@ import type { AgentEventCallback } from "./events.js";
  * @param outline - Validated outline from the explorer agent
  * @param projectRoot - Absolute path to the project root
  * @param options.onEvent - Optional callback for SSE event dispatch (sidecar mode)
+ * @param options.domainFilter - Optional list of domain IDs to generate (incremental update)
  */
 export async function runGenerator(
   outline: Outline,
   projectRoot: string,
-  options?: { onEvent?: AgentEventCallback },
+  options?: { onEvent?: AgentEventCallback; domainFilter?: string[] },
 ): Promise<void> {
-  const totalDomains = outline.knowledge_graph.length;
+  // When domainFilter is provided, build a filtered outline containing only those domains
+  const filteredOutline: Outline = options?.domainFilter
+    ? {
+        ...outline,
+        knowledge_graph: outline.knowledge_graph.filter((d) =>
+          options.domainFilter!.includes(d.id),
+        ),
+      }
+    : outline;
+
+  const totalDomains = filteredOutline.knowledge_graph.length;
   let completedDomains = 0;
   let lastHubDomainId: string | null = null;
   const onEvent = options?.onEvent;
 
   /** Mark a domain as completed (section_ready + progress update). */
   function markDomainCompleted(domainId: string): void {
-    const domain = outline.knowledge_graph.find((d) => d.id === domainId);
+    const domain = filteredOutline.knowledge_graph.find((d) => d.id === domainId);
     if (!domain) return;
     completedDomains++;
     if (onEvent) {
@@ -57,9 +68,9 @@ export async function runGenerator(
   delete cleanEnv.CLAUDECODE;
 
   for await (const message of query({
-    prompt: `Generate complete documentation for the project based on the provided outline. Process each domain sequentially. The outline JSON is already included in your system prompt.\n\nDomains to process (${totalDomains} total):\n${outline.knowledge_graph.map((d, i) => `${i + 1}. ${d.title} (${d.id})`).join("\n")}`,
+    prompt: `Generate complete documentation for the project based on the provided outline. Process each domain sequentially. The outline JSON is already included in your system prompt.\n\nDomains to process (${totalDomains} total):\n${filteredOutline.knowledge_graph.map((d, i) => `${i + 1}. ${d.title} (${d.id})`).join("\n")}`,
     options: {
-      systemPrompt: getGeneratorPrompt(outline),
+      systemPrompt: getGeneratorPrompt(filteredOutline),
       tools: [],
       maxTurns: totalDomains * 10,
       mcpServers: { deeplens: createGeneratorServer(projectRoot) },

@@ -128,7 +128,7 @@ function ReasoningRow({
 }) {
   return (
     <div className="border-l-thought rounded-r px-2 py-1">
-      <p className="text-xs leading-relaxed text-neutral-500 whitespace-pre-wrap line-clamp-3">
+      <p className="text-xs leading-relaxed text-neutral-500 whitespace-pre-wrap">
         {entry.text}
       </p>
     </div>

@@ -139,5 +139,6 @@ export interface ProjectInfo {
   name: string;
   path: string;
   lastAnalyzed?: string;
+  lastCommit?: string;
   status?: "ready" | "analyzing" | "error";
 }

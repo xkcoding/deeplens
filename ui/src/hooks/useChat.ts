@@ -61,6 +61,12 @@ export function useChat({ baseUrl }: UseChatOptions) {
 
   const currentState = mode === "fast" ? fastState : deepState;
 
+  // Keep refs to latest messages for stable closure access in sendMessage
+  const fastMessagesRef = useRef(fastState.messages);
+  fastMessagesRef.current = fastState.messages;
+  const deepMessagesRef = useRef(deepState.messages);
+  deepMessagesRef.current = deepState.messages;
+
   const sendMessage = useCallback(
     async (content: string) => {
       abortRef.current?.abort();
@@ -91,11 +97,22 @@ export function useChat({ baseUrl }: UseChatOptions) {
 
       const endpoint = mode === "fast" ? "/api/search" : "/api/investigate";
 
+      // Extract and sanitize recent history (up to 5 messages, content only)
+      const currentMessages =
+        mode === "fast" ? fastMessagesRef.current : deepMessagesRef.current;
+      const recentHistory = currentMessages
+        .filter(
+          (m): m is ChatMessage & { role: "user" | "assistant" } =>
+            m.role === "user" || m.role === "assistant",
+        )
+        .slice(-5)
+        .map((m) => ({ role: m.role, content: m.content }));
+
       try {
         const response = await fetch(`${baseUrl}${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: content }),
+          body: JSON.stringify({ query: content, messages: recentHistory }),
           signal: controller.signal,
         });
 

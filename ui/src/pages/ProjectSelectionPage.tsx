@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FolderOpen, Clock, Telescope, Plus, AlertCircle, ArrowRight } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { FolderOpen, Clock, Telescope, Plus, AlertCircle, ArrowRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -9,16 +9,63 @@ const isTauri =
   typeof window !== "undefined" &&
   !!(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
 
+/** Format an ISO timestamp as a relative time string (e.g., "3 days ago"). */
+function formatRelativeTime(iso: string): string {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diffMs = now - then;
+
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return "just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+
+  const years = Math.floor(months / 12);
+  return `${years}y ago`;
+}
+
 interface ProjectSelectionPageProps {
   onProjectSelect: (path: string) => void;
+  sidecarPort?: number | null;
 }
 
 export function ProjectSelectionPage({
   onProjectSelect,
+  sidecarPort,
 }: ProjectSelectionPageProps) {
-  const [projects] = useState<ProjectInfo[]>([]);
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [manualPath, setManualPath] = useState("");
+
+  const baseUrl = sidecarPort ? `http://127.0.0.1:${sidecarPort}` : null;
+
+  // Load projects from backend on mount
+  const fetchProjects = useCallback(async () => {
+    if (!baseUrl) return;
+    try {
+      const res = await fetch(`${baseUrl}/api/projects`);
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
+      }
+    } catch {
+      // Sidecar not ready — silently ignore
+    }
+  }, [baseUrl]);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   const handlePickDirectory = async () => {
     if (!isTauri) {
@@ -42,6 +89,23 @@ export function ProjectSelectionPage({
       onProjectSelect(trimmed);
     }
   };
+
+  const handleRemoveProject = async (projectPath: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!baseUrl) return;
+    try {
+      await fetch(`${baseUrl}/api/projects`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: projectPath }),
+      });
+      setProjects((prev) => prev.filter((p) => p.path !== projectPath));
+    } catch {
+      setError("Failed to remove project");
+    }
+  };
+
+  const hasProjects = projects.length > 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-50">
@@ -103,8 +167,15 @@ export function ProjectSelectionPage({
             </div>
           )}
 
+          {/* Empty state welcome message */}
+          {!hasProjects && (
+            <p className="text-center text-sm text-neutral-400">
+              No projects yet. Open a project folder to get started.
+            </p>
+          )}
+
           {/* Recent Projects */}
-          {projects.length > 0 && (
+          {hasProjects && (
             <div>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-neutral-400">
                 Recent Projects
@@ -115,7 +186,7 @@ export function ProjectSelectionPage({
                     key={project.path}
                     onClick={() => onProjectSelect(project.path)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-left transition-all",
+                      "group flex w-full items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-left transition-all",
                       "hover:border-primary-200 hover:shadow-sm",
                     )}
                   >
@@ -131,12 +202,19 @@ export function ProjectSelectionPage({
                     {project.lastAnalyzed && (
                       <div className="flex shrink-0 items-center gap-1 text-xs text-neutral-400">
                         <Clock className="size-3" />
-                        {project.lastAnalyzed}
+                        {formatRelativeTime(project.lastAnalyzed)}
                       </div>
                     )}
                     {project.status && (
                       <StatusBadge status={project.status} />
                     )}
+                    <button
+                      onClick={(e) => handleRemoveProject(project.path, e)}
+                      className="shrink-0 rounded p-1 text-neutral-300 opacity-0 transition-all hover:bg-neutral-100 hover:text-error group-hover:opacity-100"
+                      title="Remove from list"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
                   </button>
                 ))}
               </div>

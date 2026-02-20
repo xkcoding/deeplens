@@ -76,6 +76,7 @@ export async function deepSearch(
   embeddingClient: EmbeddingClient,
   config: DeepLensConfig,
   projectPath: string,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
 ): Promise<StreamTextResult<any, any>> {
   // 1. RAG pre-search: embed query → search both docs and code
   const queryVector = await embeddingClient.embedSingle(query, "query");
@@ -107,7 +108,7 @@ export async function deepSearch(
   const result = streamText({
     model,
     system: buildSystemPrompt(projectPath, initialContext),
-    messages: [{ role: "user", content: query }],
+    messages: [...(history ?? []), { role: "user" as const, content: query }],
     tools,
     maxOutputTokens: 16384,
     stopWhen: stepCountIs(10),

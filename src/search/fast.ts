@@ -37,6 +37,7 @@ export async function fastSearch(
   store: VectorStore,
   embeddingClient: EmbeddingClient,
   config: DeepLensConfig,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
 ): Promise<FastSearchResult> {
   // 1. Embed the query with "query" mode (Instruct prefix)
   const queryVector = await embeddingClient.embedSingle(query, "query");
@@ -63,7 +64,7 @@ export async function fastSearch(
       config.openrouterLlmModel ?? "qwen/qwen3-32b",
     ),
     system: `${FAST_SEARCH_SYSTEM_PROMPT}\n\n<context>\n${context}\n</context>`,
-    messages: [{ role: "user", content: query }],
+    messages: [...(history ?? []), { role: "user" as const, content: query }],
     providerOptions: {
       openrouter: { enable_thinking: false },
     },

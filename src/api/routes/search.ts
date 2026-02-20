@@ -5,6 +5,7 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { fastSearch } from "../../search/fast.js";
+import { resolveConfig } from "../../config/project-settings.js";
 import type { VectorStore } from "../../vector/store.js";
 import type { EmbeddingClient } from "../../embedding/client.js";
 import type { DeepLensConfig } from "../../config/env.js";
@@ -60,11 +61,15 @@ export function createSearchRoute(
     }
 
     return streamSSE(c, async (stream) => {
+      const history = Array.isArray(body.messages) ? body.messages : undefined;
+      const effectiveConfig = resolveConfig(config, body.projectPath);
+
       const { stream: textStream, sources } = await fastSearch(
         body.query,
         store,
         embeddingClient,
-        config,
+        effectiveConfig,
+        history,
       );
 
       for await (const chunk of textStream.textStream) {

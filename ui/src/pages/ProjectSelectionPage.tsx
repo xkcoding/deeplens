@@ -199,11 +199,14 @@ export function ProjectSelectionPage({
               </h2>
               <div className="space-y-2">
                 {projects.map((project) => (
-                  <button
+                  <div
                     key={project.path}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onProjectSelect(project.path)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onProjectSelect(project.path); }}
                     className={cn(
-                      "group flex w-full items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-left transition-all",
+                      "group flex w-full cursor-pointer items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-left transition-all",
                       "hover:border-primary-200 hover:shadow-sm",
                     )}
                   >
@@ -232,7 +235,7 @@ export function ProjectSelectionPage({
                     >
                       <Trash2 className="size-3.5" />
                     </button>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>

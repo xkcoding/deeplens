@@ -252,7 +252,7 @@ fn spawn_sidecar_with_config(
             ("openrouter_base_url", "OPENROUTER_BASE_URL"),
             ("openrouter_embedding_model", "OPENROUTER_EMBED_MODEL"),
             ("openrouter_llm_model", "OPENROUTER_LLM_MODEL"),
-            ("general.mcp_port", "DEEPLENS_SIDECAR_PORT"),
+            // MCP port removed: DEEPLENS_SIDECAR_PORT is always set to the actual runtime port below
         ];
         for (config_key, env_var) in key_map {
             if let Some(v) = obj.get(*config_key) {

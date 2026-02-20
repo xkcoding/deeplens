@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, FolderOpen, Globe, RotateCcw } from "lucide-react";
+import { FolderOpen, Globe, RotateCcw } from "lucide-react";
 
 const EMBEDDING_MODELS = [
   { value: "qwen/qwen3-embedding-8b", label: "Qwen3-Embedding-8B" },
@@ -36,9 +36,7 @@ interface GeneralSettingsProps {
 
 export function GeneralSettings({ config, onSave, currentProject, sidecarPort }: GeneralSettingsProps) {
   const outputDir = currentProject ? `${currentProject}/.deeplens/` : ".deeplens/";
-  const apiPort = config.api_port ?? "3100";
   const vitepressPort = config.vitepress_port ?? "4173";
-  const mcpPort = config["general.mcp_port"] ?? "3100";
 
   // Project-level overrides
   const [projectSettings, setProjectSettings] = useState<ProjectSettings>({});
@@ -108,20 +106,16 @@ export function GeneralSettings({ config, onSave, currentProject, sidecarPort }:
         <label className="text-xs font-medium text-neutral-600">
           <Globe className="mr-1 inline size-3 text-neutral-400" />
           Ports
-          <span className="ml-1 text-[10px] text-neutral-400">(global)</span>
         </label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <span className="text-[10px] text-neutral-400">API Port</span>
-            <Input
-              type="number"
-              value={apiPort}
-              onChange={(e) => onSave("api_port", e.target.value)}
-              placeholder="3100"
-              className="h-8 text-xs"
-              min={1024}
-              max={65535}
-            />
+            <span className="text-[10px] text-neutral-400">Sidecar API Port</span>
+            <div className="flex h-8 items-center rounded-md border border-neutral-200 bg-neutral-50 px-3 text-xs text-neutral-500">
+              {sidecarPort ?? "—"}
+            </div>
+            <p className="text-[10px] text-neutral-400">
+              Auto-assigned at launch. MCP Server uses this to reach the Sidecar.
+            </p>
           </div>
           <div className="space-y-1">
             <span className="text-[10px] text-neutral-400">VitePress Port</span>
@@ -135,26 +129,7 @@ export function GeneralSettings({ config, onSave, currentProject, sidecarPort }:
               max={65535}
             />
           </div>
-          <div className="space-y-1">
-            <span className="text-[10px] text-neutral-400">MCP Server Port</span>
-            <Input
-              type="number"
-              value={mcpPort}
-              onChange={(e) => onSave("general.mcp_port", e.target.value)}
-              placeholder="3100"
-              className="h-8 text-xs"
-              min={1024}
-              max={65535}
-            />
-          </div>
         </div>
-        <p className="text-[10px] text-neutral-400">
-          MCP Server port is used by external IDE agents (Cursor, Windsurf) to reach the Sidecar API.
-        </p>
-        <p className="flex items-center gap-1 text-[10px] text-warning">
-          <AlertCircle className="size-3" />
-          Port changes require application restart
-        </p>
       </div>
 
       {/* Project Model Overrides */}

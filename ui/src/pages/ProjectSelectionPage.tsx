@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FolderOpen, Clock, Telescope, Plus, AlertCircle, ArrowRight, Trash2 } from "lucide-react";
+import { FolderOpen, Clock, Telescope, Plus, AlertCircle, ArrowRight, Trash2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -37,11 +37,13 @@ function formatRelativeTime(iso: string): string {
 interface ProjectSelectionPageProps {
   onProjectSelect: (path: string) => void;
   sidecarPort?: number | null;
+  onSettingsClick?: () => void;
 }
 
 export function ProjectSelectionPage({
   onProjectSelect,
   sidecarPort,
+  onSettingsClick,
 }: ProjectSelectionPageProps) {
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +110,22 @@ export function ProjectSelectionPage({
   const hasProjects = projects.length > 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-50">
+    <div className="relative flex min-h-screen flex-col bg-neutral-50">
+      {/* Top-right Settings */}
+      {onSettingsClick && (
+        <div className="absolute right-4 top-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSettingsClick}
+            className="gap-1.5 text-neutral-400 hover:text-neutral-600"
+          >
+            <Settings className="size-4" />
+            Settings
+          </Button>
+        </div>
+      )}
+
       {/* Hero */}
       <div className="flex flex-1 flex-col items-center justify-center px-6">
         <div className="w-full max-w-2xl">
@@ -227,10 +244,11 @@ export function ProjectSelectionPage({
 }
 
 function StatusBadge({ status }: { status: NonNullable<ProjectInfo["status"]> }) {
-  const styles = {
+  const styles: Record<string, string> = {
     ready: "bg-success-bg text-success",
     analyzing: "bg-primary-50 text-primary-600",
     error: "bg-error-bg text-error",
+    opened: "bg-neutral-100 text-neutral-500",
   };
 
   return (

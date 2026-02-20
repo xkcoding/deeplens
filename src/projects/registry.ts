@@ -12,7 +12,7 @@ export interface ProjectEntry {
   name: string;
   lastAnalyzed?: string;
   lastCommit?: string;
-  status: "ready" | "analyzing" | "error";
+  status: "ready" | "analyzing" | "error" | "opened";
 }
 
 const REGISTRY_DIR = path.join(os.homedir(), ".deeplens");
@@ -44,11 +44,17 @@ export async function loadProjects(): Promise<ProjectEntry[]> {
   }
 }
 
-export async function registerProject(projectPath: string): Promise<void> {
+export async function registerProject(
+  projectPath: string,
+  status: ProjectEntry["status"] = "analyzing",
+): Promise<void> {
   const entries = await loadProjects();
   const existing = entries.find((e) => e.path === projectPath);
   if (existing) {
-    existing.status = "analyzing";
+    // Only escalate status; don't downgrade "ready" to "opened"
+    if (status === "analyzing" || !existing.status || existing.status === "opened") {
+      existing.status = status;
+    }
     await fs.writeFile(REGISTRY_PATH, JSON.stringify(entries, null, 2), "utf-8");
     return;
   }
@@ -57,7 +63,7 @@ export async function registerProject(projectPath: string): Promise<void> {
   entries.push({
     path: projectPath,
     name,
-    status: "analyzing",
+    status,
   });
   await fs.writeFile(REGISTRY_PATH, JSON.stringify(entries, null, 2), "utf-8");
 }

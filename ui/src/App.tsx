@@ -454,10 +454,19 @@ function App() {
   if (!currentProject) {
     return <ProjectSelectionPage
       sidecarPort={sidecar.port}
-      onProjectSelect={(path) => {
-        localStorage.setItem("deeplens-current-project", path);
-        setCurrentProject(path);
+      onProjectSelect={(projectDir) => {
+        localStorage.setItem("deeplens-current-project", projectDir);
+        setCurrentProject(projectDir);
+        // Register project in backend so it appears in Recent Projects
+        if (baseUrl) {
+          fetch(`${baseUrl}/api/projects`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: projectDir }),
+          }).catch(() => {});
+        }
       }}
+      onSettingsClick={() => setSettingsOpen(true)}
     />;
   }
 

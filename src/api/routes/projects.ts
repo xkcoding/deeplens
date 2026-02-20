@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { loadProjects, removeProject } from "../../projects/registry.js";
+import { loadProjects, registerProject, removeProject } from "../../projects/registry.js";
 
 export function createProjectsRoute(): Hono {
   const app = new Hono();
@@ -13,6 +13,16 @@ export function createProjectsRoute(): Hono {
   app.get("/", async (c) => {
     const projects = await loadProjects();
     return c.json(projects);
+  });
+
+  /** Register a project when opened (before analysis). */
+  app.post("/", async (c) => {
+    const body = await c.req.json<{ path: string }>();
+    if (!body.path) {
+      return c.json({ error: "path is required" }, 400);
+    }
+    await registerProject(body.path, "opened");
+    return c.json({ ok: true });
   });
 
   app.delete("/", async (c) => {

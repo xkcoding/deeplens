@@ -64,10 +64,18 @@ export function createVisualizeRoute(
       }
     }
 
+    // Check if we have any analysis data to work with
+    const stats = store.getAggregateStatus();
+    if (!outlineContext && stats.totalChunks === 0) {
+      return c.json(
+        { error: "No analysis available. Run analysis first." },
+        400,
+      );
+    }
+
     // 2. RAG: retrieve relevant code/doc snippets
     let ragContext = "";
     try {
-      const stats = store.getAggregateStatus();
       if (stats.totalChunks > 0) {
         const queryVector = await embeddingClient.embedSingle(scenario, "query");
         const codeResults = store.search(queryVector, 5, "code");

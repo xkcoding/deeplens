@@ -236,12 +236,13 @@ export async function startMcpServer(options?: {
     "Search the project's indexed documentation using natural language. Returns an AI-generated answer based on the project's knowledge base with source citations.",
     {
       query: z.string().describe("Natural language question about the project"),
+      domain_filter: z.string().optional().describe("Optional domain ID to restrict search scope"),
     },
-    async ({ query }) => {
+    async ({ query, domain_filter }) => {
       try {
         const { text, doneData } = await consumeSSE(
           `${sidecarUrl}/api/search`,
-          { query, projectPath },
+          { query, projectPath, domain_filter },
         );
 
         let result = text;
@@ -270,13 +271,14 @@ export async function startMcpServer(options?: {
     "investigate_implementation",
     "Deep investigation of code implementation using an AI agent with tool calling. The agent reads source files, searches code, and provides comprehensive analysis with code references.",
     {
-      query: z.string().describe("Question about implementation details, e.g. 'How does the rate limiter handle burst traffic?'"),
+      question: z.string().describe("Question about implementation details, e.g. 'How does the rate limiter handle burst traffic?'"),
+      target_files: z.array(z.string()).optional().describe("Optional list of file paths to focus the investigation on"),
     },
-    async ({ query }) => {
+    async ({ question, target_files }) => {
       try {
         const { text } = await consumeSSE(
           `${sidecarUrl}/api/investigate`,
-          { query, projectPath },
+          { query: question, projectPath, target_files },
         );
 
         return {

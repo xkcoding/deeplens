@@ -112,9 +112,16 @@ function App() {
     return () => clearInterval(interval);
   }, [baseUrl, currentProject]);
 
-  // Auto-load session on project open
+  // Auto-load session on project open + register project in backend
   useEffect(() => {
     if (!currentProject || !baseUrl) return;
+
+    // Register project so it appears in Recent Projects on homepage
+    fetch(`${baseUrl}/api/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: currentProject }),
+    }).catch(() => {});
 
     fetch(`${baseUrl}/api/session?projectPath=${encodeURIComponent(currentProject)}`)
       .then((res) => res.json())
@@ -444,6 +451,20 @@ function App() {
     [saveMultiple],
   );
 
+  // Settings dialog — rendered at top level so it works on every page
+  const settingsDialog = (
+    <SettingsDialog
+      open={settingsOpen}
+      onOpenChange={setSettingsOpen}
+      sidecarPort={sidecar.port}
+      currentProject={currentProject}
+      config={config}
+      saveConfig={saveConfig}
+      exportConfig={exportConfig}
+      importConfig={importConfig}
+    />
+  );
+
   // Setup wizard
   if (showWizard) {
     return (
@@ -452,22 +473,19 @@ function App() {
   }
 
   if (!currentProject) {
-    return <ProjectSelectionPage
-      sidecarPort={sidecar.port}
-      onProjectSelect={(projectDir) => {
-        localStorage.setItem("deeplens-current-project", projectDir);
-        setCurrentProject(projectDir);
-        // Register project in backend so it appears in Recent Projects
-        if (baseUrl) {
-          fetch(`${baseUrl}/api/projects`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: projectDir }),
-          }).catch(() => {});
-        }
-      }}
-      onSettingsClick={() => setSettingsOpen(true)}
-    />;
+    return (
+      <>
+        <ProjectSelectionPage
+          sidecarPort={sidecar.port}
+          onProjectSelect={(projectDir) => {
+            localStorage.setItem("deeplens-current-project", projectDir);
+            setCurrentProject(projectDir);
+          }}
+          onSettingsClick={() => setSettingsOpen(true)}
+        />
+        {settingsDialog}
+      </>
+    );
   }
 
   const projectName = currentProject.split("/").pop() || currentProject;
@@ -539,17 +557,7 @@ function App() {
         }
       />
 
-      {/* Settings Dialog */}
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        sidecarPort={sidecar.port}
-        currentProject={currentProject}
-        config={config}
-        saveConfig={saveConfig}
-        exportConfig={exportConfig}
-        importConfig={importConfig}
-      />
+      {settingsDialog}
     </div>
   );
 }

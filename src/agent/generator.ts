@@ -20,7 +20,41 @@ export async function runGenerator(
 ): Promise<void> {
   const totalDomains = outline.knowledge_graph.length;
   let completedDomains = 0;
+  let lastHubDomainId: string | null = null;
   const onEvent = options?.onEvent;
+
+  /** Mark a domain as completed (section_ready + progress update). */
+  function markDomainCompleted(domainId: string): void {
+    const domain = outline.knowledge_graph.find((d) => d.id === domainId);
+    if (!domain) return;
+    completedDomains++;
+    if (onEvent) {
+      onEvent({
+        type: "section_ready",
+        data: {
+          domain_id: domain.id,
+          domain_title: domain.title,
+          target_file: `domains/${domain.id}/index.md`,
+        },
+      });
+      onEvent({
+        type: "progress",
+        data: {
+          phase: "generate",
+          completed: Math.min(completedDomains, totalDomains),
+          total: totalDomains,
+        },
+      });
+    } else {
+      console.log(
+        `\n\u2713 ${domain.title} (${Math.min(completedDomains, totalDomains)}/${totalDomains} domains complete)`,
+      );
+    }
+  }
+
+  // Clean env: remove CLAUDECODE to avoid "nested session" rejection from Claude Code CLI
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.CLAUDECODE;
 
   for await (const message of query({
     prompt: `Generate complete documentation for the project based on the provided outline. Process each domain sequentially. The outline JSON is already included in your system prompt.\n\nDomains to process (${totalDomains} total):\n${outline.knowledge_graph.map((d, i) => `${i + 1}. ${d.title} (${d.id})`).join("\n")}`,
@@ -32,39 +66,18 @@ export async function runGenerator(
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
       persistSession: false,
+      env: cleanEnv,
     },
   })) {
     switch (message.type) {
       case "assistant": {
         for (const block of message.message.content) {
           if (block.type === "text") {
-            // Detect domain completion from agent text
-            const completionMatch = block.text.match(
-              /Completed domain:\s*(.+?)\s*\((\d+)\/(\d+)\)/,
-            );
-            if (completionMatch) {
-              completedDomains = parseInt(completionMatch[2], 10);
-              if (onEvent) {
-                onEvent({
-                  type: "progress",
-                  data: {
-                    phase: "generate",
-                    completed: completedDomains,
-                    total: totalDomains,
-                    domain: completionMatch[1],
-                  },
-                });
-              } else {
-                console.log(
-                  `\n\u2713 ${completionMatch[1]} (${completedDomains}/${totalDomains} domains complete)`,
-                );
-              }
+            // Agent text: forward as thought (progress is tracked via write_file hub detection)
+            if (onEvent) {
+              onEvent({ type: "thought", data: { content: block.text } });
             } else {
-              if (onEvent) {
-                onEvent({ type: "thought", data: { content: block.text } });
-              } else {
-                process.stdout.write(block.text);
-              }
+              process.stdout.write(block.text);
             }
           } else if (block.type === "tool_use") {
             if (onEvent) {
@@ -77,45 +90,33 @@ export async function runGenerator(
               console.log(`\n\uD83D\uDD27 ${block.name}(${args})`);
             }
 
-            // Track write_file calls to detect domain completion
+            // Track write_file calls to detect domain completion + send content
             if (block.name === "mcp__deeplens__write_file") {
               const input = block.input as Record<string, unknown>;
               const filePath =
                 typeof input.path === "string" ? input.path : "";
-              // When a domain hub index.md is written, count it as domain completion
+              const fileContent =
+                typeof input.content === "string" ? input.content : "";
+
+              // Send document content to frontend for live preview
+              if (onEvent && fileContent) {
+                onEvent({
+                  type: "doc_written",
+                  data: { path: filePath, content: fileContent },
+                });
+              }
+              // Detect domain transitions via hub (index.md) writes.
+              // When a NEW domain's hub is written, the PREVIOUS domain is fully complete
+              // (hub + all spokes done, since generator processes domains sequentially).
               const domainHubMatch = filePath.match(
                 /^domains\/([^/]+)\/index\.md$/,
               );
               if (domainHubMatch) {
                 const domainId = domainHubMatch[1];
-                const domain = outline.knowledge_graph.find(
-                  (d) => d.id === domainId,
-                );
-                if (domain) {
-                  completedDomains++;
-                  if (onEvent) {
-                    onEvent({
-                      type: "section_ready",
-                      data: {
-                        target_file: filePath,
-                        domain_id: domainId,
-                        domain_title: domain.title,
-                      },
-                    });
-                    onEvent({
-                      type: "progress",
-                      data: {
-                        phase: "generate",
-                        completed: Math.min(completedDomains, totalDomains),
-                        total: totalDomains,
-                      },
-                    });
-                  } else {
-                    console.log(
-                      `\n\u2713 ${domain.title} (${Math.min(completedDomains, totalDomains)}/${totalDomains} domains complete)`,
-                    );
-                  }
+                if (lastHubDomainId && lastHubDomainId !== domainId) {
+                  markDomainCompleted(lastHubDomainId);
                 }
+                lastHubDomainId = domainId;
               }
             }
           }
@@ -142,6 +143,11 @@ export async function runGenerator(
       default:
         break;
     }
+  }
+
+  // Mark the last domain as completed (no next hub write to trigger it)
+  if (lastHubDomainId) {
+    markDomainCompleted(lastHubDomainId);
   }
 
   if (onEvent) {

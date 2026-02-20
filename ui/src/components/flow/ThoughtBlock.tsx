@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ThoughtBlockProps {
@@ -18,8 +19,11 @@ export function ThoughtBlock({ content, timestamp }: ThoughtBlockProps) {
 
   return (
     <div className="animate-slide-up border-l-thought rounded-r-md bg-neutral-50 px-3 py-2">
-      <div className="mb-1 text-[10px] text-neutral-400">
-        {formatRelativeTime(timestamp)}
+      <div className="mb-1 flex items-center gap-1.5">
+        <Brain className="size-3 text-violet-400" />
+        <span className="text-[10px] text-neutral-400">
+          {formatRelativeTime(timestamp)}
+        </span>
       </div>
       <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
         {displayContent}

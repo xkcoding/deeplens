@@ -5,6 +5,8 @@ import {
   Send,
   Trash2,
   AlertCircle,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "./ChatMessage";
 import { SourceCitations } from "./SourceCitations";
-import { ToolCallCard } from "./ToolCallCard";
+import { ThoughtChainList } from "./ThoughtChainList";
 import { useChat, type ChatMode } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +26,9 @@ interface ChatWidgetProps {
 
 export function ChatWidget({ baseUrl, indexReady, onNavigate }: ChatWidgetProps) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const {
     mode,
@@ -37,9 +40,17 @@ export function ChatWidget({ baseUrl, indexReady, onNavigate }: ChatWidgetProps)
     clearHistory,
   } = useChat({ baseUrl });
 
-  // Auto-scroll on new messages
+  // Auto-scroll: target the Radix ScrollArea viewport directly
+  // to avoid scrollIntoView bubbling up and pushing the whole page
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const viewport = scrollAreaRef.current?.querySelector(
+      '[data-slot="scroll-area-viewport"]',
+    );
+    if (viewport) {
+      requestAnimationFrame(() => {
+        viewport.scrollTop = viewport.scrollHeight;
+      });
+    }
   }, [messages]);
 
   const handleSend = useCallback(() => {
@@ -63,7 +74,12 @@ export function ChatWidget({ baseUrl, indexReady, onNavigate }: ChatWidgetProps)
   }
 
   return (
-    <div className="absolute inset-x-0 bottom-0 z-20 flex h-[var(--height-chat-widget)] flex-col border-t border-neutral-200 bg-white shadow-lg">
+    <div
+      className={cn(
+        "absolute inset-x-0 bottom-0 z-20 flex flex-col border-t border-neutral-200 bg-white shadow-lg transition-[height] duration-200",
+        expanded ? "h-full" : "h-[var(--height-chat-widget)]",
+      )}
+    >
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-3 py-2">
         <div className="flex items-center gap-2">
@@ -86,6 +102,18 @@ export function ChatWidget({ baseUrl, indexReady, onNavigate }: ChatWidgetProps)
           <Button variant="ghost" size="icon-xs" onClick={clearHistory} title="Clear history">
             <Trash2 className="size-3.5" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => setExpanded((v) => !v)}
+            title={expanded ? "Collapse chat" : "Expand chat"}
+          >
+            {expanded ? (
+              <Minimize2 className="size-3.5" />
+            ) : (
+              <Maximize2 className="size-3.5" />
+            )}
+          </Button>
           <Button variant="ghost" size="icon-xs" onClick={() => setOpen(false)} title="Close chat">
             <X className="size-3.5" />
           </Button>
@@ -93,7 +121,7 @@ export function ChatWidget({ baseUrl, indexReady, onNavigate }: ChatWidgetProps)
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1">
+      <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1 overflow-hidden">
         <div className="space-y-3 p-3">
           {!indexReady && (
             <div className="flex items-center gap-2 rounded-lg bg-warning-bg p-3 text-xs text-warning">
@@ -109,19 +137,21 @@ export function ChatWidget({ baseUrl, indexReady, onNavigate }: ChatWidgetProps)
           )}
 
           {messages.map((msg) => (
-            <div key={msg.id}>
-              <ChatMessage message={msg} />
-
-              {/* Tool calls (deep mode only) */}
+            <div key={msg.id} className="space-y-1">
+              {/* ThoughtChain: above message bubble for deep mode */}
               {mode === "deep" &&
-                msg.toolCalls &&
-                msg.toolCalls.length > 0 && (
-                  <div className="ml-0 mt-1 space-y-1">
-                    {msg.toolCalls.map((tc, i) => (
-                      <ToolCallCard key={i} toolCall={tc} />
-                    ))}
-                  </div>
+                msg.role === "assistant" &&
+                msg.thoughtChain &&
+                msg.thoughtChain.length > 0 && (
+                  <ThoughtChainList
+                    entries={msg.thoughtChain}
+                    durationMs={msg.thoughtChainDurationMs}
+                    isStreaming={msg.isStreaming ?? false}
+                  />
                 )}
+
+              {/* Message bubble */}
+              <ChatMessage message={msg} />
 
               {/* Source citations */}
               {msg.sources && msg.sources.length > 0 && (
@@ -140,7 +170,7 @@ export function ChatWidget({ baseUrl, indexReady, onNavigate }: ChatWidgetProps)
               {error}
             </div>
           )}
-          <div ref={bottomRef} />
+          <div aria-hidden />
         </div>
       </ScrollArea>
 

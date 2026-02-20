@@ -8,7 +8,9 @@ export type AgentEventType =
   | "error"
   | "phase"
   | "outline"
-  | "done";
+  | "done"
+  | "doc_written"
+  | "section_ready";
 
 export interface BaseEvent {
   id: string;
@@ -61,6 +63,19 @@ export interface DoneEvent extends BaseEvent {
   type: "done";
 }
 
+export interface DocWrittenEvent extends BaseEvent {
+  type: "doc_written";
+  path: string;
+  content: string;
+}
+
+export interface SectionReadyEvent extends BaseEvent {
+  type: "section_ready";
+  domainId: string;
+  domainTitle: string;
+  targetFile: string;
+}
+
 export type AgentEvent =
   | ThoughtEvent
   | ToolStartEvent
@@ -69,7 +84,9 @@ export type AgentEvent =
   | ErrorEvent
   | PhaseEvent
   | OutlineEvent
-  | DoneEvent;
+  | DoneEvent
+  | DocWrittenEvent
+  | SectionReadyEvent;
 
 export interface EventFilters {
   thoughts: boolean;

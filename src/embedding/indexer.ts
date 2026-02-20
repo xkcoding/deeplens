@@ -23,6 +23,8 @@ export interface IndexOptions {
   indexCode?: boolean;
   /** Source code file extensions to include. */
   codeExtensions?: string[];
+  /** Progress callback — called after each file is processed. */
+  onProgress?: (current: number, total: number, skipped: number) => Promise<void> | void;
 }
 
 interface FileEntry {
@@ -50,12 +52,21 @@ const DEFAULT_EXCLUDE_DIRS = new Set([
   "node_modules",
   ".git",
   "dist",
+  "dist-ui",
   "build",
+  "out",
   ".next",
+  ".output",
+  ".nuxt",
   "target",
   "vendor",
   "__pycache__",
   ".deeplens",
+  "coverage",
+  ".turbo",
+  ".vercel",
+  ".cache",
+  "binaries",
 ]);
 
 const EMBED_BATCH_SIZE = 20;
@@ -63,10 +74,8 @@ const EMBED_BATCH_SIZE = 20;
 // ── Ignore rules ──────────────────────────────────
 
 /**
- * Load ignore rules for indexing.
- * Uses DEFAULT_EXCLUDE_DIRS + .deeplensignore only.
- * Does NOT read .gitignore — indexing needs differ from git tracking
- * (e.g. .deeplens/ is git-ignored but must be scanned for docs).
+ * Load ignore rules for code file indexing.
+ * Applies DEFAULT_EXCLUDE_DIRS + .deeplensignore only.
  */
 async function loadIgnoreRules(projectRoot: string): Promise<Ignore> {
   const ig = ignore();
@@ -155,84 +164,103 @@ export class Indexer {
 
     let processed = 0;
     let skipped = 0;
+    let failed = 0;
     let totalChunks = 0;
 
     for (const file of files) {
-      const content = await fs.readFile(file.absolutePath, "utf-8");
-      const hash = sha256(content);
+      try {
+        const content = await fs.readFile(file.absolutePath, "utf-8");
+        const hash = sha256(content);
 
-      // Check if file already indexed with same hash
-      const status = this.store.getStatus(file.relativePath);
-      if (status && status.fileHash === hash) {
-        skipped++;
-        processed++;
-        printProgress(processed, files.length, skipped);
-        continue;
-      }
+        // Check if file already indexed with same hash
+        const status = this.store.getStatus(file.relativePath);
+        if (status && status.fileHash === hash) {
+          skipped++;
+          processed++;
+          printProgress(processed, files.length, skipped);
+          await options.onProgress?.(processed, files.length, skipped);
+          continue;
+        }
 
-      // Delete old chunks for this file (re-index case)
-      if (status) {
-        this.store.deleteBySource(file.relativePath);
-      }
+        // Delete old chunks for this file (re-index case)
+        if (status) {
+          this.store.deleteBySource(file.relativePath);
+        }
 
-      // Chunk the file
-      const chunks =
-        file.sourceType === "doc"
-          ? chunkMarkdown(content, file.relativePath)
-          : chunkCode(content, file.relativePath);
+        // Chunk the file
+        const chunks =
+          file.sourceType === "doc"
+            ? chunkMarkdown(content, file.relativePath)
+            : chunkCode(content, file.relativePath);
 
-      if (chunks.length === 0) {
-        processed++;
-        printProgress(processed, files.length, skipped);
-        continue;
-      }
+        if (chunks.length === 0) {
+          processed++;
+          printProgress(processed, files.length, skipped);
+          await options.onProgress?.(processed, files.length, skipped);
+          continue;
+        }
 
-      // Embed in batches
-      const embeddings: Float32Array[] = [];
-      for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
-        const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
-        const texts = batch.map((c) => c.content);
-        const batchEmbeddings = await this.client.embedBatch(
-          texts,
-          "document",
+        // Embed in batches with throttling to avoid API rate limits
+        const embeddings: Float32Array[] = [];
+        for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
+          const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
+          const texts = batch.map((c) => c.content);
+          const batchEmbeddings = await this.client.embedBatch(
+            texts,
+            "document",
+          );
+          embeddings.push(...batchEmbeddings);
+
+          // Throttle between batches to avoid rate limiting
+          if (i + EMBED_BATCH_SIZE < chunks.length) {
+            await sleep(100);
+          }
+        }
+
+        // Store chunks with embeddings
+        const chunksWithEmbeddings: ChunkWithEmbedding[] = chunks.map(
+          (chunk, i) => ({
+            sourcePath: chunk.sourcePath,
+            sourceType: chunk.sourceType,
+            headerPath: chunk.headerPath ?? undefined,
+            content: chunk.content,
+            startLine: chunk.startLine,
+            endLine: chunk.endLine,
+            embedding: embeddings[i],
+          }),
         );
-        embeddings.push(...batchEmbeddings);
+
+        this.store.insertChunks(chunksWithEmbeddings);
+
+        // Update index status
+        this.store.upsertStatus({
+          sourcePath: file.relativePath,
+          sourceType: file.sourceType,
+          fileHash: hash,
+          chunkCount: chunks.length,
+        });
+
+        totalChunks += chunks.length;
+      } catch (err) {
+        failed++;
+        console.error(
+          chalk.yellow(`\nWarning: Failed to index ${file.relativePath}: ${(err as Error).message}`),
+        );
       }
 
-      // Store chunks with embeddings
-      const chunksWithEmbeddings: ChunkWithEmbedding[] = chunks.map(
-        (chunk, i) => ({
-          sourcePath: chunk.sourcePath,
-          sourceType: chunk.sourceType,
-          headerPath: chunk.headerPath ?? undefined,
-          content: chunk.content,
-          startLine: chunk.startLine,
-          endLine: chunk.endLine,
-          embedding: embeddings[i],
-        }),
-      );
-
-      this.store.insertChunks(chunksWithEmbeddings);
-
-      // Update index status
-      this.store.upsertStatus({
-        sourcePath: file.relativePath,
-        sourceType: file.sourceType,
-        fileHash: hash,
-        chunkCount: chunks.length,
-      });
-
-      totalChunks += chunks.length;
       processed++;
       printProgress(processed, files.length, skipped);
+      await options.onProgress?.(processed, files.length, skipped);
     }
 
     console.log(""); // newline after progress
-    console.log(
-      chalk.green(
-        `Indexing complete: ${processed - skipped} files indexed, ${skipped} skipped (unchanged), ${totalChunks} chunks stored.`,
-      ),
-    );
+    const parts = [
+      `${processed - skipped - failed} files indexed`,
+      skipped > 0 ? `${skipped} skipped (unchanged)` : null,
+      failed > 0 ? `${failed} failed` : null,
+      `${totalChunks} chunks stored`,
+    ].filter(Boolean).join(", ");
+    console.log(chalk.green(`Indexing complete: ${parts}.`));
   }
 
   /**
@@ -254,6 +282,10 @@ export class Indexer {
 
 function sha256(content: string): string {
   return createHash("sha256").update(content).digest("hex");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function printProgress(current: number, total: number, skipped: number): void {

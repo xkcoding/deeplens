@@ -26,8 +26,8 @@ export function SetupWizard({ open, onComplete }: SetupWizardProps) {
     const config: Record<string, string> = {};
     if (claudeKey) config.claude_api_key = claudeKey;
     if (claudeBaseUrl) config.claude_base_url = claudeBaseUrl;
-    if (siliconKey) config.siliconflow_api_key = siliconKey;
-    if (siliconBaseUrl) config.siliconflow_base_url = siliconBaseUrl;
+    if (siliconKey) config.openrouter_api_key = siliconKey;
+    if (siliconBaseUrl) config.openrouter_base_url = siliconBaseUrl;
     onComplete(config);
   };
 
@@ -93,11 +93,11 @@ export function SetupWizard({ open, onComplete }: SetupWizardProps) {
       </div>
     </div>,
 
-    // Step 2: SiliconFlow (optional)
-    <div key="silicon" className="space-y-4 py-2">
+    // Step 2: OpenRouter (optional)
+    <div key="openrouter" className="space-y-4 py-2">
       <div className="text-center">
         <h3 className="text-base font-semibold text-neutral-800">
-          SiliconFlow API Configuration
+          OpenRouter API Configuration
         </h3>
         <p className="mt-1 text-xs text-neutral-500">
           Optional. Enables embedding-based Q&A after analysis.
@@ -125,7 +125,7 @@ export function SetupWizard({ open, onComplete }: SetupWizardProps) {
             type="text"
             value={siliconBaseUrl}
             onChange={(e) => setSiliconBaseUrl(e.target.value)}
-            placeholder="https://api.siliconflow.cn/v1"
+            placeholder="https://openrouter.ai/api/v1"
             className="h-9 text-sm"
           />
           <p className="text-[10px] text-neutral-400">

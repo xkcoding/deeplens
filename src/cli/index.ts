@@ -1,9 +1,9 @@
 import { Command } from "commander";
 import path from "node:path";
-import { readFile } from "node:fs/promises";
+import fs, { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import { loadConfig, validateSiliconFlowConfig } from "../config/env.js";
+import { loadConfig, validateOpenRouterConfig } from "../config/env.js";
 import { runExplorer } from "../agent/explorer.js";
 import { runGenerator } from "../agent/generator.js";
 import { reviewOutline } from "../outline/review.js";
@@ -189,10 +189,16 @@ program
   .option("--code", "Also index source code files")
   .action(async (projectPath: string, options: { code?: boolean }) => {
     const config = loadConfig();
-    validateSiliconFlowConfig(config);
+    validateOpenRouterConfig(config);
 
     const absProjectPath = path.resolve(projectPath);
     const dbPath = path.join(absProjectPath, ".deeplens", "deeplens.db");
+
+    // Clean old DB to avoid orphan chunks from deleted/regenerated docs
+    if (existsSync(dbPath)) {
+      await fs.rm(dbPath, { force: true });
+      console.log(chalk.dim("Cleared previous vector database."));
+    }
 
     console.log(chalk.cyan("Starting indexing pipeline..."));
     const start = Date.now();
@@ -223,7 +229,7 @@ program
       options: { apiPort?: number; docsPort?: number },
     ) => {
       const config = loadConfig();
-      validateSiliconFlowConfig(config);
+      validateOpenRouterConfig(config);
 
       const absProjectPath = path.resolve(projectPath ?? process.cwd());
       const dbPath = path.join(absProjectPath, ".deeplens", "deeplens.db");

@@ -11,52 +11,58 @@ import {
 } from "@/components/ui/select";
 
 const EMBEDDING_MODELS = [
-  { value: "Qwen/Qwen3-Embedding-8B", label: "Qwen3-Embedding-8B (default)" },
-  { value: "BAAI/bge-m3", label: "BGE-M3" },
-  { value: "BAAI/bge-large-zh-v1.5", label: "BGE-Large-ZH v1.5" },
+  { value: "qwen/qwen3-embedding-8b", label: "Qwen3-Embedding-8B (default)" },
+  { value: "baai/bge-m3", label: "BGE-M3" },
+  { value: "baai/bge-large-zh-v1.5", label: "BGE-Large-ZH v1.5" },
 ];
 
 const LLM_MODELS = [
-  { value: "deepseek-ai/DeepSeek-V3", label: "DeepSeek V3" },
-  { value: "Qwen/Qwen2.5-72B-Instruct", label: "Qwen2.5-72B-Instruct" },
+  { value: "qwen/qwen3-32b", label: "Qwen3-32B (default)" },
+  { value: "qwen/qwen3-14b", label: "Qwen3-14B" },
+  { value: "qwen/qwen3-8b", label: "Qwen3-8B" },
 ];
 
-interface SiliconFlowSettingsProps {
+interface OpenRouterSettingsProps {
   config: Record<string, string>;
   onSave: (key: string, value: string) => Promise<void>;
+  sidecarPort: number | null;
 }
 
-export function SiliconFlowSettings({ config, onSave }: SiliconFlowSettingsProps) {
+export function OpenRouterSettings({ config, onSave, sidecarPort }: OpenRouterSettingsProps) {
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [testError, setTestError] = useState("");
 
-  const baseUrl = config.siliconflow_base_url ?? "https://api.siliconflow.cn/v1";
-  const apiKey = config.siliconflow_api_key ?? "";
-  const embeddingModel = config.siliconflow_embedding_model ?? "Qwen/Qwen3-Embedding-8B";
-  const llmModel = config.siliconflow_llm_model ?? "deepseek-ai/DeepSeek-V3";
+  const baseUrl = config.openrouter_base_url ?? "https://openrouter.ai/api/v1";
+  const apiKey = config.openrouter_api_key ?? "";
+  const embeddingModel = config.openrouter_embedding_model ?? "qwen/qwen3-embedding-8b";
+  const llmModel = config.openrouter_llm_model ?? "qwen/qwen3-32b";
 
   const handleTestConnection = async () => {
+    if (!sidecarPort) {
+      setTestResult("error");
+      setTestError("Sidecar not running. Start the app or run the sidecar first.");
+      return;
+    }
     setTestResult("loading");
     setTestError("");
     try {
-      const res = await fetch(`${baseUrl}/embeddings`, {
+      const res = await fetch(`http://127.0.0.1:${sidecarPort}/api/test-connection`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          provider: "openrouter",
+          api_key: apiKey,
+          base_url: baseUrl,
           model: embeddingModel,
-          input: "test",
         }),
       });
-      if (res.ok) {
+      const data = await res.json();
+      if (data.ok) {
         setTestResult("success");
       } else {
-        const body = await res.text();
         setTestResult("error");
-        setTestError(`HTTP ${res.status}: ${body.slice(0, 100)}`);
+        setTestError(data.error || "Unknown error");
       }
     } catch (err) {
       setTestResult("error");
@@ -71,8 +77,8 @@ export function SiliconFlowSettings({ config, onSave }: SiliconFlowSettingsProps
         <label className="text-xs font-medium text-neutral-600">Base URL</label>
         <Input
           value={baseUrl}
-          onChange={(e) => onSave("siliconflow_base_url", e.target.value)}
-          placeholder="https://api.siliconflow.cn/v1"
+          onChange={(e) => onSave("openrouter_base_url", e.target.value)}
+          placeholder="https://openrouter.ai/api/v1"
           className="h-8 text-xs"
         />
       </div>
@@ -84,8 +90,8 @@ export function SiliconFlowSettings({ config, onSave }: SiliconFlowSettingsProps
           <Input
             type={showKey ? "text" : "password"}
             value={apiKey}
-            onChange={(e) => onSave("siliconflow_api_key", e.target.value)}
-            placeholder="sk-..."
+            onChange={(e) => onSave("openrouter_api_key", e.target.value)}
+            placeholder="sk-or-..."
             className="h-8 pr-9 text-xs"
           />
           <button
@@ -103,7 +109,7 @@ export function SiliconFlowSettings({ config, onSave }: SiliconFlowSettingsProps
         <label className="text-xs font-medium text-neutral-600">Embedding Model</label>
         <Select
           value={embeddingModel}
-          onValueChange={(v) => onSave("siliconflow_embedding_model", v)}
+          onValueChange={(v) => onSave("openrouter_embedding_model", v)}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />
@@ -123,7 +129,7 @@ export function SiliconFlowSettings({ config, onSave }: SiliconFlowSettingsProps
         <label className="text-xs font-medium text-neutral-600">LLM Model</label>
         <Select
           value={llmModel}
-          onValueChange={(v) => onSave("siliconflow_llm_model", v)}
+          onValueChange={(v) => onSave("openrouter_llm_model", v)}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />

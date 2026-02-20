@@ -41,8 +41,8 @@ export async function fastSearch(
   // 1. Embed the query with "query" mode (Instruct prefix)
   const queryVector = await embeddingClient.embedSingle(query, "query");
 
-  // 2. KNN top-5
-  let results = store.search(queryVector, 5);
+  // 2. KNN top-5 (docs only for fast search)
+  let results = store.search(queryVector, 5, "doc");
 
   // 3. Context assembly with token budget
   let context = assembleContext(results);
@@ -52,18 +52,21 @@ export async function fastSearch(
   }
 
   // 4. Stream LLM response
-  const siliconflow = createOpenAICompatible({
-    name: "siliconflow",
-    apiKey: config.siliconflowApiKey!,
-    baseURL: config.siliconflowBaseUrl ?? "https://api.siliconflow.cn/v1",
+  const openrouter = createOpenAICompatible({
+    name: "openrouter",
+    apiKey: config.openrouterApiKey!,
+    baseURL: config.openrouterBaseUrl ?? "https://openrouter.ai/api/v1",
   });
 
   const result = streamText({
-    model: siliconflow.chatModel(
-      config.siliconflowLlmModel ?? "deepseek-ai/DeepSeek-V3",
+    model: openrouter.chatModel(
+      config.openrouterLlmModel ?? "qwen/qwen3-32b",
     ),
     system: `${FAST_SEARCH_SYSTEM_PROMPT}\n\n<context>\n${context}\n</context>`,
     messages: [{ role: "user", content: query }],
+    providerOptions: {
+      openrouter: { enable_thinking: false },
+    },
   });
 
   return {

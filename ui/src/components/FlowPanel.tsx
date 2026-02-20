@@ -8,6 +8,7 @@ import type { AgentEvent, EventFilters } from "@/types/events";
 interface FlowPanelProps {
   events: AgentEvent[];
   filters: EventFilters;
+  error?: string | null;
   onFilterChange: (filters: EventFilters) => void;
   onClear: () => void;
 }
@@ -27,6 +28,7 @@ function loadFilters(): EventFilters {
 export function FlowPanel({
   events,
   filters,
+  error,
   onFilterChange,
   onClear,
 }: FlowPanelProps) {
@@ -110,7 +112,14 @@ export function FlowPanel({
         onScroll={handleScroll}
         className="relative flex-1 overflow-y-auto px-3 py-2"
       >
-        {events.length === 0 ? (
+        {error ? (
+          <div className="flex h-full items-center justify-center">
+            <div className="max-w-md rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <p className="font-medium">Error</p>
+              <p className="mt-1 break-all">{error}</p>
+            </div>
+          </div>
+        ) : events.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-neutral-400">
             Waiting for agent events...
           </div>

@@ -1,5 +1,5 @@
 /**
- * Embedding client — SiliconFlow Embedding API via Vercel AI SDK.
+ * Embedding client — OpenRouter Embedding API via Vercel AI SDK.
  */
 
 import { embed, embedMany } from "ai";
@@ -24,21 +24,21 @@ export class EmbeddingClient {
   private modelId: string;
 
   constructor(config: DeepLensConfig) {
-    if (!config.siliconflowApiKey) {
+    if (!config.openrouterApiKey) {
       throw new Error(
-        "SILICONFLOW_API_KEY is required for embedding operations. " +
+        "OPENROUTER_API_KEY is required for embedding operations. " +
           "Set it in .env or as an environment variable.",
       );
     }
 
     this.provider = createOpenAICompatible({
-      name: "siliconflow",
-      apiKey: config.siliconflowApiKey,
-      baseURL: config.siliconflowBaseUrl ?? "https://api.siliconflow.cn/v1",
+      name: "openrouter",
+      apiKey: config.openrouterApiKey,
+      baseURL: config.openrouterBaseUrl ?? "https://openrouter.ai/api/v1",
     });
 
     this.modelId =
-      config.siliconflowEmbedModel ?? "Qwen/Qwen3-Embedding-8B";
+      config.openrouterEmbedModel ?? "qwen/qwen3-embedding-8b";
   }
 
   /**

@@ -9,6 +9,7 @@ import path from "node:path";
 import chalk from "chalk";
 
 const DEFAULT_PORT = 5173;
+const DEFAULT_PREVIEW_PORT = 4173;
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -27,6 +28,67 @@ async function findAvailablePort(startPort: number): Promise<number> {
     port++;
   }
   return port;
+}
+
+/**
+ * Start VitePress dev server in the background (non-blocking).
+ * Returns port and the child process for lifecycle management.
+ * Waits until the server is actually listening before returning.
+ */
+export async function startPreviewBackground(
+  docsDir: string,
+  options?: { port?: number },
+): Promise<{ port: number; child: ReturnType<typeof spawn> }> {
+  const nodeModules = path.join(docsDir, "node_modules");
+  if (!existsSync(nodeModules)) {
+    execSync("npm install", { cwd: docsDir, stdio: "inherit" });
+  }
+
+  const requestedPort = options?.port ?? DEFAULT_PREVIEW_PORT;
+  const port = await findAvailablePort(requestedPort);
+
+  const child = spawn("npx", ["vitepress", "dev", "--port", String(port)], {
+    cwd: docsDir,
+    stdio: "pipe",
+  });
+
+  // Wait for VitePress to print its URL (indicates server is ready),
+  // or timeout after 30 seconds.
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      // Resolve even on timeout — the server might still be starting
+      resolve();
+    }, 30_000);
+
+    child.stdout?.on("data", (data: Buffer) => {
+      const text = data.toString();
+      // VitePress prints "Local: http://localhost:PORT/" when ready
+      if (text.includes("localhost") || text.includes("Local:")) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+
+    child.stderr?.on("data", (data: Buffer) => {
+      // Log stderr for debugging but don't reject — VitePress outputs
+      // deprecation warnings to stderr which are non-fatal
+      console.error(`[VitePress stderr] ${data.toString().trim()}`);
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+
+    child.on("close", (code) => {
+      if (code !== null && code !== 0) {
+        clearTimeout(timeout);
+        reject(new Error(`VitePress exited with code ${code}`));
+      }
+    });
+  });
+
+  return { port, child };
 }
 
 export async function startPreviewServer(

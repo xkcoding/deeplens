@@ -24,20 +24,34 @@ export function useSidecar(): SidecarState {
     if (isTauri) {
       // Tauri mode: listen for sidecar events from Rust backend
       let cancelled = false;
-      import("@tauri-apps/api/event").then(({ listen }) => {
+      (async () => {
+        const { listen } = await import("@tauri-apps/api/event");
         if (cancelled) return;
-        const unlistenReady = listen<{ port: number }>("sidecar-ready", (event) => {
+
+        const unlistenReady = await listen<{ port: number }>("sidecar-ready", (event) => {
           setState({ status: "ready", port: event.payload.port, error: null });
         });
-        const unlistenFatal = listen<{ error: string }>("sidecar-fatal", (event) => {
+        const unlistenFatal = await listen<{ error: string }>("sidecar-fatal", (event) => {
           setState({ status: "error", port: null, error: event.payload.error });
         });
+
+        // Check current status in case event fired before listener was registered
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          const status = await invoke<{ running: boolean; port: number | null }>("check_sidecar_status");
+          if (!cancelled && status.running && status.port) {
+            setState({ status: "ready", port: status.port, error: null });
+          }
+        } catch {
+          // check_sidecar_status not available
+        }
+
         // Store cleanup
-        (window as unknown as Record<string, unknown>).__deeplens_sidecar_cleanup = async () => {
-          (await unlistenReady)();
-          (await unlistenFatal)();
+        (window as unknown as Record<string, unknown>).__deeplens_sidecar_cleanup = () => {
+          unlistenReady();
+          unlistenFatal();
         };
-      });
+      })();
       return () => {
         cancelled = true;
         const cleanup = (window as unknown as Record<string, unknown>).__deeplens_sidecar_cleanup;
@@ -48,7 +62,7 @@ export function useSidecar(): SidecarState {
       let cancelled = false;
       const tryConnect = async () => {
         try {
-          const res = await fetch(`http://127.0.0.1:${DEV_SIDECAR_PORT}/api/status`);
+          const res = await fetch(`http://127.0.0.1:${DEV_SIDECAR_PORT}/health`);
           if (res.ok && !cancelled) {
             setState({ status: "ready", port: DEV_SIDECAR_PORT, error: null });
             return true;

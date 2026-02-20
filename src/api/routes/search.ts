@@ -9,6 +9,34 @@ import type { VectorStore } from "../../vector/store.js";
 import type { EmbeddingClient } from "../../embedding/client.js";
 import type { DeepLensConfig } from "../../config/env.js";
 
+/**
+ * Extract a human-readable title from a source path.
+ * - "domains/agent-core/index.md"       → "Agent Core"
+ * - "domains/agent-core/explorer.md"    → "Explorer"
+ * - ".deeplens/docs/domains/x/foo.md"   → "Foo"
+ * - "src/api/server.ts"                 → "server.ts"
+ */
+function extractSourceTitle(sourcePath: string): string {
+  const parts = sourcePath.split("/");
+  const fileName = parts.pop() ?? sourcePath;
+  const dirName = parts.pop();
+
+  // For index.md, use the parent directory name
+  if (fileName === "index.md" && dirName) {
+    return dirName
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+
+  // For other files, use the file name without extension
+  const name = fileName.replace(/\.\w+$/, "");
+  return name
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export function createSearchRoute(
   store: VectorStore,
   embeddingClient: EmbeddingClient,
@@ -42,13 +70,17 @@ export function createSearchRoute(
       for await (const chunk of textStream.textStream) {
         await stream.writeSSE({
           event: "text-delta",
-          data: chunk,
+          data: JSON.stringify({ text: chunk }),
         });
       }
 
+      const uniqueSources = [...new Set(sources)].map((s) => ({
+        path: s,
+        title: extractSourceTitle(s),
+      }));
       await stream.writeSSE({
         event: "done",
-        data: JSON.stringify({ sources: [...new Set(sources)] }),
+        data: JSON.stringify({ sources: uniqueSources }),
       });
     });
   });

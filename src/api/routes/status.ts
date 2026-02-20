@@ -19,7 +19,7 @@ export function createStatusRoute(
       totalChunks: stats.totalChunks,
       totalFiles: stats.totalFiles,
       lastIndexed: stats.lastIndexed,
-      embedModel: config.siliconflowEmbedModel ?? "Qwen/Qwen3-Embedding-8B",
+      embedModel: config.openrouterEmbedModel ?? "qwen/qwen3-embedding-8b",
     });
   });
 

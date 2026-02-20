@@ -2,12 +2,32 @@ import { useState, useCallback, useRef } from "react";
 
 export type ChatMode = "fast" | "deep";
 
+export interface ThoughtChainToolEntry {
+  type: "tool";
+  name: string;
+  args: Record<string, unknown>;
+  status: "running" | "completed";
+  startedAt: number;
+  durationMs?: number;
+}
+
+export interface ThoughtChainReasoningEntry {
+  type: "reasoning";
+  text: string;
+  startedAt: number;
+}
+
+export type ThoughtChainEntry =
+  | ThoughtChainToolEntry
+  | ThoughtChainReasoningEntry;
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   sources?: SourceCitation[];
-  toolCalls?: ToolCallInfo[];
+  thoughtChain?: ThoughtChainEntry[];
+  thoughtChainDurationMs?: number;
   isStreaming?: boolean;
 }
 
@@ -15,12 +35,6 @@ export interface SourceCitation {
   title: string;
   path: string;
   url?: string;
-}
-
-export interface ToolCallInfo {
-  name: string;
-  args: Record<string, unknown>;
-  durationMs?: number;
 }
 
 interface UseChatOptions {
@@ -65,7 +79,6 @@ export function useChat({ baseUrl }: UseChatOptions) {
         content: "",
         isStreaming: true,
         sources: [],
-        toolCalls: [],
       };
 
       const setState = mode === "fast" ? setFastState : setDeepState;
@@ -94,8 +107,33 @@ export function useChat({ baseUrl }: UseChatOptions) {
         const decoder = new TextDecoder();
         let buffer = "";
         let accumulatedContent = "";
+        const thoughtChain: ThoughtChainEntry[] = [];
+        let currentReasoningIdx: number | null = null;
+        let thoughtChainStartedAt: number | null = null;
         const sources: SourceCitation[] = [];
-        const toolCalls: ToolCallInfo[] = [];
+
+        let pendingRaf = false;
+        function scheduleUpdate() {
+          if (pendingRaf) return;
+          pendingRaf = true;
+          requestAnimationFrame(() => {
+            pendingRaf = false;
+            const chainSnapshot = thoughtChain.map((e) => ({ ...e }));
+            setState((prev) => {
+              const msgs = [...prev.messages];
+              const last = msgs[msgs.length - 1];
+              if (last?.role === "assistant") {
+                msgs[msgs.length - 1] = {
+                  ...last,
+                  content: accumulatedContent,
+                  thoughtChain:
+                    chainSnapshot.length > 0 ? chainSnapshot : undefined,
+                };
+              }
+              return { ...prev, messages: msgs };
+            });
+          });
+        }
 
         while (true) {
           const { done, value } = await reader.read();
@@ -110,7 +148,8 @@ export function useChat({ baseUrl }: UseChatOptions) {
             let eventType = "message";
             let data = "";
             for (const line of block.split("\n")) {
-              if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+              if (line.startsWith("event: "))
+                eventType = line.slice(7).trim();
               else if (line.startsWith("data: ")) data = line.slice(6);
             }
             if (!data) continue;
@@ -118,39 +157,62 @@ export function useChat({ baseUrl }: UseChatOptions) {
             try {
               const parsed = JSON.parse(data);
 
-              if (eventType === "text-delta" || parsed.type === "text-delta") {
-                accumulatedContent += parsed.content ?? parsed.text ?? "";
-                // Use requestAnimationFrame for batched updates
-                requestAnimationFrame(() => {
-                  setState((prev) => {
-                    const msgs = [...prev.messages];
-                    const last = msgs[msgs.length - 1];
-                    if (last?.role === "assistant") {
-                      msgs[msgs.length - 1] = {
-                        ...last,
-                        content: accumulatedContent,
-                      };
-                    }
-                    return { ...prev, messages: msgs };
+              if (eventType === "reasoning") {
+                const text = parsed.text ?? "";
+                if (
+                  currentReasoningIdx !== null &&
+                  thoughtChain[currentReasoningIdx]?.type === "reasoning"
+                ) {
+                  (
+                    thoughtChain[
+                      currentReasoningIdx
+                    ] as ThoughtChainReasoningEntry
+                  ).text += text;
+                } else {
+                  const now = Date.now();
+                  if (thoughtChainStartedAt === null)
+                    thoughtChainStartedAt = now;
+                  thoughtChain.push({
+                    type: "reasoning",
+                    text,
+                    startedAt: now,
                   });
-                });
-              } else if (
-                eventType === "tool_start" ||
-                parsed.type === "tool_start"
-              ) {
-                toolCalls.push({
-                  name: parsed.toolName ?? parsed.name ?? "unknown",
-                  args: parsed.args ?? {},
-                });
-              } else if (
-                eventType === "tool_end" ||
-                parsed.type === "tool_end"
-              ) {
-                const last = toolCalls[toolCalls.length - 1];
-                if (last) {
-                  last.durationMs = parsed.durationMs ?? parsed.duration;
+                  currentReasoningIdx = thoughtChain.length - 1;
                 }
-              } else if (eventType === "done" || parsed.type === "done") {
+                scheduleUpdate();
+              } else if (eventType === "text-delta") {
+                accumulatedContent += parsed.text ?? parsed.content ?? "";
+                scheduleUpdate();
+              } else if (eventType === "tool_start") {
+                currentReasoningIdx = null;
+                const now = Date.now();
+                if (thoughtChainStartedAt === null)
+                  thoughtChainStartedAt = now;
+                thoughtChain.push({
+                  type: "tool",
+                  name: parsed.tool ?? parsed.toolName ?? "unknown",
+                  args: parsed.args ?? parsed.input ?? {},
+                  status: "running",
+                  startedAt: now,
+                });
+                scheduleUpdate();
+              } else if (eventType === "tool_end") {
+                const toolName =
+                  parsed.tool ?? parsed.toolName ?? "unknown";
+                for (let i = thoughtChain.length - 1; i >= 0; i--) {
+                  const entry = thoughtChain[i];
+                  if (
+                    entry.type === "tool" &&
+                    entry.name === toolName &&
+                    entry.status === "running"
+                  ) {
+                    entry.status = "completed";
+                    entry.durationMs = Date.now() - entry.startedAt;
+                    break;
+                  }
+                }
+                scheduleUpdate();
+              } else if (eventType === "done") {
                 if (parsed.sources) {
                   sources.push(...parsed.sources);
                 }
@@ -162,6 +224,10 @@ export function useChat({ baseUrl }: UseChatOptions) {
         }
 
         // Finalize
+        const thoughtChainDurationMs = thoughtChainStartedAt
+          ? Date.now() - thoughtChainStartedAt
+          : undefined;
+
         setState((prev) => {
           const msgs = [...prev.messages];
           const last = msgs[msgs.length - 1];
@@ -171,7 +237,11 @@ export function useChat({ baseUrl }: UseChatOptions) {
               content: accumulatedContent,
               isStreaming: false,
               sources: sources.length > 0 ? sources : undefined,
-              toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+              thoughtChain:
+                thoughtChain.length > 0
+                  ? thoughtChain.map((e) => ({ ...e }))
+                  : undefined,
+              thoughtChainDurationMs,
             };
           }
           return { ...prev, messages: msgs, isLoading: false };

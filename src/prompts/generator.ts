@@ -99,6 +99,17 @@ For each domain, generate:
 
 **CRITICAL: You MUST use the \`render_mermaid\` tool to generate ALL Mermaid diagrams. NEVER write Mermaid DSL syntax by hand.** The tool guarantees correct syntax, escaping, and formatting.
 
+**WARNING: Hand-written Mermaid will produce broken, unrenderable diagrams.** Common failures include:
+- Unbalanced brackets in node definitions like \`CLI["DeepLens CLI["Commands"]\` (nested brackets break parsing)
+- Special characters in labels causing syntax errors
+- Subgraph nesting issues that corrupt the entire diagram
+
+**Correct workflow for EVERY diagram:**
+1. Call \`mcp__deeplens__render_mermaid\` with a structured JSON input
+2. The tool returns syntactically correct Mermaid code
+3. Copy the EXACT tool output into your \`write_file\` content, wrapped in \\\`\\\`\\\`mermaid fences
+4. Do NOT modify the tool's output — use it verbatim
+
 ### How to use render_mermaid:
 
 Call \`mcp__deeplens__render_mermaid\` with a JSON \`diagram\` object. Three diagram types are supported:

@@ -10,19 +10,20 @@ export interface DeepLensConfig {
   apiKey: string;
   baseUrl?: string;
 
-  // Phase 2 — SiliconFlow
-  siliconflowApiKey?: string;
-  siliconflowBaseUrl?: string;
-  siliconflowEmbedModel?: string;
-  siliconflowLlmModel?: string;
+  // Phase 2 — OpenRouter
+  openrouterApiKey?: string;
+  openrouterBaseUrl?: string;
+  openrouterEmbedModel?: string;
+  openrouterLlmModel?: string;
 }
 
-export function loadConfig(): DeepLensConfig {
+export function loadConfig(options?: { requireApiKey?: boolean }): DeepLensConfig {
   dotenv.config();
 
   const apiKey =
-    process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
-  if (!apiKey) {
+    process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || "";
+
+  if (!apiKey && options?.requireApiKey !== false) {
     console.error(
       chalk.red(
         "ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN is required.\n" +
@@ -33,28 +34,32 @@ export function loadConfig(): DeepLensConfig {
   }
 
   const baseUrl = process.env.ANTHROPIC_BASE_URL || undefined;
-  const keySource = process.env.ANTHROPIC_API_KEY
-    ? "ANTHROPIC_API_KEY"
-    : "ANTHROPIC_AUTH_TOKEN";
-  console.log(
-    chalk.dim(
-      `Config loaded: ${keySource}=${apiKey.slice(0, 8)}…, base_url=${baseUrl ?? "(default)"}`,
-    ),
-  );
-
-  // Phase 2 — SiliconFlow (optional, validated on demand)
-  const siliconflowApiKey = process.env.SILICONFLOW_API_KEY || undefined;
-  const siliconflowBaseUrl =
-    process.env.SILICONFLOW_BASE_URL || "https://api.siliconflow.cn/v1";
-  const siliconflowEmbedModel =
-    process.env.SILICONFLOW_EMBED_MODEL || "Qwen/Qwen3-Embedding-8B";
-  const siliconflowLlmModel =
-    process.env.SILICONFLOW_LLM_MODEL || "deepseek-ai/DeepSeek-V3";
-
-  if (siliconflowApiKey) {
+  if (apiKey) {
+    const keySource = process.env.ANTHROPIC_API_KEY
+      ? "ANTHROPIC_API_KEY"
+      : "ANTHROPIC_AUTH_TOKEN";
     console.log(
       chalk.dim(
-        `SiliconFlow: key=${siliconflowApiKey.slice(0, 8)}…, embed=${siliconflowEmbedModel}, llm=${siliconflowLlmModel}`,
+        `Config loaded: ${keySource}=${apiKey.slice(0, 8)}…, base_url=${baseUrl ?? "(default)"}`,
+      ),
+    );
+  } else {
+    console.log(chalk.yellow("No API key configured. Set it in Settings."));
+  }
+
+  // Phase 2 — OpenRouter (optional, validated on demand)
+  const openrouterApiKey = process.env.OPENROUTER_API_KEY || undefined;
+  const openrouterBaseUrl =
+    process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+  const openrouterEmbedModel =
+    process.env.OPENROUTER_EMBED_MODEL || "qwen/qwen3-embedding-8b";
+  const openrouterLlmModel =
+    process.env.OPENROUTER_LLM_MODEL || "qwen/qwen3-32b";
+
+  if (openrouterApiKey) {
+    console.log(
+      chalk.dim(
+        `OpenRouter: key=${openrouterApiKey.slice(0, 8)}…, embed=${openrouterEmbedModel}, llm=${openrouterLlmModel}`,
       ),
     );
   }
@@ -62,18 +67,18 @@ export function loadConfig(): DeepLensConfig {
   return {
     apiKey,
     baseUrl,
-    siliconflowApiKey,
-    siliconflowBaseUrl,
-    siliconflowEmbedModel,
-    siliconflowLlmModel,
+    openrouterApiKey,
+    openrouterBaseUrl,
+    openrouterEmbedModel,
+    openrouterLlmModel,
   };
 }
 
-export function validateSiliconFlowConfig(config: DeepLensConfig): void {
-  if (!config.siliconflowApiKey) {
+export function validateOpenRouterConfig(config: DeepLensConfig): void {
+  if (!config.openrouterApiKey) {
     console.error(
       chalk.red(
-        "SILICONFLOW_API_KEY is required for this command.\n" +
+        "OPENROUTER_API_KEY is required for this command.\n" +
           "Set it in .env or as an environment variable.",
       ),
     );

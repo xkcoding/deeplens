@@ -33,7 +33,7 @@ export function createInvestigateRoute(
     }
 
     return streamSSE(c, async (stream) => {
-      const result = deepSearch(
+      const result = await deepSearch(
         body.query,
         store,
         embeddingClient,
@@ -43,10 +43,22 @@ export function createInvestigateRoute(
 
       const toolsUsed: string[] = [];
       let totalSteps = 0;
+      // Buffer text-delta per step: text before a tool-call is "thinking",
+      // text in a step without tools is the final answer.
+      let pendingText = "";
 
       for await (const part of result.fullStream) {
         switch (part.type) {
           case "tool-call":
+            // Flush pending text as reasoning (thinking before tool call)
+            if (pendingText.trim()) {
+              await stream.writeSSE({
+                event: "reasoning",
+                data: JSON.stringify({ text: pendingText }),
+              });
+            }
+            pendingText = "";
+
             toolsUsed.push(part.toolName);
             await stream.writeSSE({
               event: "tool_start",
@@ -64,20 +76,41 @@ export function createInvestigateRoute(
             });
             break;
 
-          case "text-delta":
+          case "reasoning-delta":
             await stream.writeSSE({
-              event: "text-delta",
-              data: part.text,
+              event: "reasoning",
+              data: JSON.stringify({ text: part.text }),
             });
             break;
 
-          case "finish-step":
-            totalSteps++;
+          case "text-delta":
+            pendingText += part.text;
             break;
+
+          case "finish-step": {
+            totalSteps++;
+            // Flush pending text: emit as text-delta (answer content)
+            if (pendingText) {
+              await stream.writeSSE({
+                event: "text-delta",
+                data: JSON.stringify({ text: pendingText }),
+              });
+            }
+            pendingText = "";
+            break;
+          }
 
           default:
             break;
         }
+      }
+
+      // Flush any remaining text after the last step
+      if (pendingText) {
+        await stream.writeSSE({
+          event: "text-delta",
+          data: JSON.stringify({ text: pendingText }),
+        });
       }
 
       await stream.writeSSE({

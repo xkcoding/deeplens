@@ -242,19 +242,24 @@ fn spawn_sidecar_with_config(
         .map_err(|e| e.to_string())?
         .args(["--port", &port.to_string()]);
 
-    // Inject config as env vars
+    // Inject config as env vars (UI saves keys as claude_api_key, openrouter_api_key, etc.)
     if let Some(obj) = config.as_object() {
-        if let Some(v) = obj.get("anthropic.api_key") {
-            cmd = cmd.env("ANTHROPIC_API_KEY", v.as_str().unwrap_or_default());
-        }
-        if let Some(v) = obj.get("anthropic.base_url") {
-            cmd = cmd.env("ANTHROPIC_BASE_URL", v.as_str().unwrap_or_default());
-        }
-        if let Some(v) = obj.get("siliconflow.api_key") {
-            cmd = cmd.env("SILICONFLOW_API_KEY", v.as_str().unwrap_or_default());
-        }
-        if let Some(v) = obj.get("siliconflow.base_url") {
-            cmd = cmd.env("SILICONFLOW_BASE_URL", v.as_str().unwrap_or_default());
+        let key_map: &[(&str, &str)] = &[
+            ("claude_api_key", "ANTHROPIC_API_KEY"),
+            ("claude_base_url", "ANTHROPIC_BASE_URL"),
+            ("claude_model", "ANTHROPIC_MODEL"),
+            ("openrouter_api_key", "OPENROUTER_API_KEY"),
+            ("openrouter_base_url", "OPENROUTER_BASE_URL"),
+            ("openrouter_embedding_model", "OPENROUTER_EMBED_MODEL"),
+            ("openrouter_llm_model", "OPENROUTER_LLM_MODEL"),
+        ];
+        for (config_key, env_var) in key_map {
+            if let Some(v) = obj.get(*config_key) {
+                let val = v.as_str().unwrap_or_default();
+                if !val.is_empty() {
+                    cmd = cmd.env(env_var, val);
+                }
+            }
         }
     }
 
@@ -313,10 +318,12 @@ fn start_event_forwarding(
             match event {
                 CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line).to_string();
+                    eprintln!("[sidecar stdout] {}", text.trim());
                     app_handle.emit("sidecar-stdout", &text).ok();
                 }
                 CommandEvent::Stderr(line) => {
                     let text = String::from_utf8_lossy(&line).to_string();
+                    eprintln!("[sidecar stderr] {}", text.trim());
                     app_handle.emit("sidecar-stderr", &text).ok();
                 }
                 CommandEvent::Terminated(payload) => {
@@ -333,6 +340,7 @@ fn start_event_forwarding(
                     return;
                 }
                 CommandEvent::Error(err) => {
+                    eprintln!("[sidecar error] {}", err);
                     app_handle.emit("sidecar-stderr", &err).ok();
                 }
                 _ => {}
@@ -442,7 +450,10 @@ fn graceful_shutdown(app_handle: &tauri::AppHandle) {
 
 fn find_available_port(start: u16) -> u16 {
     for port in start..start + 100 {
-        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+        // Check both IPv4 and IPv6 — Hono binds to :: (all interfaces)
+        let ipv4_ok = std::net::TcpListener::bind(("0.0.0.0", port)).is_ok();
+        let ipv6_ok = std::net::TcpListener::bind(("::1", port)).is_ok();
+        if ipv4_ok && ipv6_ok {
             return port;
         }
     }

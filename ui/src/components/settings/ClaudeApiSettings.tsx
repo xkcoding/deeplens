@@ -18,9 +18,10 @@ const CLAUDE_MODELS = [
 interface ClaudeApiSettingsProps {
   config: Record<string, string>;
   onSave: (key: string, value: string) => Promise<void>;
+  sidecarPort: number | null;
 }
 
-export function ClaudeApiSettings({ config, onSave }: ClaudeApiSettingsProps) {
+export function ClaudeApiSettings({ config, onSave, sidecarPort }: ClaudeApiSettingsProps) {
   const [showKey, setShowKey] = useState(false);
   const [testResult, setTestResult] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [testError, setTestError] = useState("");
@@ -30,28 +31,30 @@ export function ClaudeApiSettings({ config, onSave }: ClaudeApiSettingsProps) {
   const model = config.claude_model ?? "claude-sonnet-4-20250514";
 
   const handleTestConnection = async () => {
+    if (!sidecarPort) {
+      setTestResult("error");
+      setTestError("Sidecar not running. Start the app or run the sidecar first.");
+      return;
+    }
     setTestResult("loading");
     setTestError("");
     try {
-      const res = await fetch(`${baseUrl}/v1/messages`, {
+      const res = await fetch(`http://127.0.0.1:${sidecarPort}/api/test-connection`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          provider: "claude",
+          api_key: apiKey,
+          base_url: baseUrl,
           model,
-          max_tokens: 1,
-          messages: [{ role: "user", content: "hi" }],
         }),
       });
-      if (res.ok || res.status === 200) {
+      const data = await res.json();
+      if (data.ok) {
         setTestResult("success");
       } else {
-        const body = await res.text();
         setTestResult("error");
-        setTestError(`HTTP ${res.status}: ${body.slice(0, 100)}`);
+        setTestError(data.error || "Unknown error");
       }
     } catch (err) {
       setTestResult("error");

@@ -20,16 +20,47 @@ export async function runExplorer(
   options?: { onEvent?: AgentEventCallback },
 ): Promise<Outline> {
   let lastError = "";
+  let previousRawOutput = "";
   const onEvent = options?.onEvent;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const prompt =
-      attempt === 0
-        ? "Analyze the codebase and produce a knowledge outline."
-        : `Your previous output failed validation:\n\n${lastError}\n\nPlease fix the issues and produce a valid JSON outline. Output ONLY the corrected JSON.`;
+    let prompt: string;
+    if (attempt === 0) {
+      prompt = "Analyze the codebase and produce a knowledge outline.";
+    } else {
+      // Include previous raw output so the agent can fix JSON without re-exploring
+      prompt = `Your previous analysis produced output that failed validation.
 
-    const rawOutput = await runExplorerQuery(projectRoot, prompt, onEvent);
+<previous_output>
+${previousRawOutput}
+</previous_output>
 
+Validation error:
+${lastError}
+
+Please fix the validation issues in the JSON above and output ONLY the corrected JSON outline. Do NOT re-explore the codebase — the previous output already contains all the information you need.`;
+    }
+
+    let rawOutput: string;
+    try {
+      rawOutput = await runExplorerQuery(projectRoot, prompt, onEvent);
+    } catch (err) {
+      // If max_turns hit on retry, surface a clear error
+      const errMsg = (err as Error).message;
+      if (attempt < MAX_RETRIES && errMsg.includes("error_max_turns")) {
+        const msg = `Explorer hit turn limit (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...`;
+        if (onEvent) {
+          onEvent({ type: "error", data: { message: msg, recoverable: true } });
+        } else {
+          console.error(`\n${msg}`);
+        }
+        lastError = errMsg;
+        continue;
+      }
+      throw err;
+    }
+
+    previousRawOutput = rawOutput;
     const result = parseOutline(rawOutput);
     if (result.success) {
       return result.data;
@@ -72,16 +103,28 @@ async function runExplorerQuery(
 ): Promise<string> {
   let resultText = "";
 
+  // Clean env: remove CLAUDECODE to avoid "nested session" rejection from Claude Code CLI
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.CLAUDECODE;
+
   for await (const message of query({
     prompt,
     options: {
       systemPrompt: getExplorerPrompt(projectRoot),
       tools: [],
-      maxTurns: 50,
+      maxTurns: 100,
       mcpServers: { deeplens: createExplorerServer(projectRoot) },
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
       persistSession: false,
+      env: cleanEnv,
+      stderr: (data: string) => {
+        if (onEvent) {
+          onEvent({ type: "thought", data: { content: `[stderr] ${data}` } });
+        } else {
+          process.stderr.write(data);
+        }
+      },
     },
   })) {
     switch (message.type) {

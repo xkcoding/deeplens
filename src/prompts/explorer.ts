@@ -130,7 +130,7 @@ Your final output MUST be a single JSON object with this exact structure. Output
   - **description**: 1-2 sentences about what this domain handles
   - **reasoning**: Why these files form a coherent business domain (the "glue" logic)
   - **files**: Array of file entries belonging to this domain (at least 1 file per domain)
-  - **sub_concepts**: Optional nested concepts for complex domains. Omit or use empty array if not needed.
+  - **sub_concepts**: Break each domain into 2-5 sub-concepts. Each sub-concept represents a distinct functional area within the domain. This is REQUIRED — every domain must have at least 2 sub_concepts to produce a rich document outline.
 - **ignored_files**: All files you saw but excluded from the knowledge graph
 
 ### Critical Constraints:

@@ -10,18 +10,20 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ClaudeApiSettings } from "./ClaudeApiSettings";
-import { SiliconFlowSettings } from "./SiliconFlowSettings";
+import { OpenRouterSettings } from "./OpenRouterSettings";
 import { GeneralSettings } from "./GeneralSettings";
-import { useConfig } from "@/hooks/useConfig";
-
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sidecarPort: number | null;
+  currentProject?: string | null;
+  config: Record<string, string>;
+  saveConfig: (key: string, value: string) => Promise<void>;
+  exportConfig: () => void;
+  importConfig: (file: File) => Promise<void>;
 }
 
-export function SettingsDialog({ open, onOpenChange, sidecarPort }: SettingsDialogProps) {
-  const { config, loading, saveConfig, exportConfig, importConfig } = useConfig();
+export function SettingsDialog({ open, onOpenChange, sidecarPort, currentProject, config, saveConfig, exportConfig, importConfig }: SettingsDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,24 +34,21 @@ export function SettingsDialog({ open, onOpenChange, sidecarPort }: SettingsDial
     }
   };
 
-  const handleReloadSidecar = async () => {
-    if (!sidecarPort) return;
-    try {
-      await fetch(`http://127.0.0.1:${sidecarPort}/api/reload-config`, {
-        method: "POST",
-      });
-    } catch {
-      // Sidecar might not be running
-    }
-  };
-
   const handleSave = async (key: string, value: string) => {
     await saveConfig(key, value);
-    // Reload sidecar config after save
-    await handleReloadSidecar();
+    // Notify sidecar of the config change
+    if (sidecarPort) {
+      try {
+        await fetch(`http://127.0.0.1:${sidecarPort}/api/reload-config`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, value }),
+        });
+      } catch {
+        // Sidecar might not be running
+      }
+    }
   };
-
-  if (loading) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,8 +65,8 @@ export function SettingsDialog({ open, onOpenChange, sidecarPort }: SettingsDial
             <TabsTrigger value="claude" className="flex-1 text-xs">
               Claude API
             </TabsTrigger>
-            <TabsTrigger value="siliconflow" className="flex-1 text-xs">
-              SiliconFlow
+            <TabsTrigger value="openrouter" className="flex-1 text-xs">
+              OpenRouter
             </TabsTrigger>
             <TabsTrigger value="general" className="flex-1 text-xs">
               General
@@ -75,15 +74,15 @@ export function SettingsDialog({ open, onOpenChange, sidecarPort }: SettingsDial
           </TabsList>
 
           <TabsContent value="claude" className="mt-4">
-            <ClaudeApiSettings config={config} onSave={handleSave} />
+            <ClaudeApiSettings config={config} onSave={handleSave} sidecarPort={sidecarPort} />
           </TabsContent>
 
-          <TabsContent value="siliconflow" className="mt-4">
-            <SiliconFlowSettings config={config} onSave={handleSave} />
+          <TabsContent value="openrouter" className="mt-4">
+            <OpenRouterSettings config={config} onSave={handleSave} sidecarPort={sidecarPort} />
           </TabsContent>
 
           <TabsContent value="general" className="mt-4">
-            <GeneralSettings config={config} onSave={handleSave} />
+            <GeneralSettings config={config} onSave={handleSave} currentProject={currentProject} />
           </TabsContent>
         </Tabs>
 

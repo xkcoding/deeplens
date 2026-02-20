@@ -1,49 +1,27 @@
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { FolderOpen, AlertCircle } from "lucide-react";
-
-const isTauri =
-  typeof window !== "undefined" &&
-  !!(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+import { AlertCircle, FolderOpen } from "lucide-react";
 
 interface GeneralSettingsProps {
   config: Record<string, string>;
   onSave: (key: string, value: string) => Promise<void>;
+  currentProject?: string | null;
 }
 
-export function GeneralSettings({ config, onSave }: GeneralSettingsProps) {
-  const storagePath = config.storage_path ?? "";
+export function GeneralSettings({ config, onSave, currentProject }: GeneralSettingsProps) {
+  const outputDir = currentProject ? `${currentProject}/.deeplens/` : ".deeplens/";
   const apiPort = config.api_port ?? "3100";
   const vitepressPort = config.vitepress_port ?? "4173";
 
-  const handlePickDirectory = async () => {
-    if (!isTauri) return;
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const path = await invoke<string>("pick_directory");
-      if (path) {
-        await onSave("storage_path", path);
-      }
-    } catch {
-      // User cancelled or Tauri command not available
-    }
-  };
-
   return (
     <div className="space-y-4">
-      {/* Storage Path */}
+      {/* Output Directory (read-only) */}
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-neutral-600">Storage Path</label>
+        <label className="text-xs font-medium text-neutral-600">Output directory (read-only)</label>
         <div className="flex items-center gap-2">
-          <Input
-            value={storagePath}
-            onChange={(e) => onSave("storage_path", e.target.value)}
-            placeholder="~/.deeplens"
-            className="h-8 flex-1 text-xs"
-          />
-          <Button variant="outline" size="icon-sm" onClick={handlePickDirectory} title="Browse">
-            <FolderOpen className="size-3.5" />
-          </Button>
+          <div className="flex h-8 flex-1 items-center rounded-md border border-neutral-200 bg-neutral-50 px-3 text-xs text-neutral-500">
+            <FolderOpen className="mr-1.5 size-3.5 shrink-0 text-neutral-400" />
+            <span className="truncate">{outputDir}</span>
+          </div>
         </div>
       </div>
 

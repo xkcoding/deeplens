@@ -9,7 +9,8 @@ export interface AgentEvent {
     | "tool_end"
     | "progress"
     | "error"
-    | "section_ready";
+    | "section_ready"
+    | "doc_written";
   data: Record<string, unknown>;
 }
 

@@ -1,0 +1,52 @@
+diff --git a/node_modules/@ai-sdk/openai-compatible/dist/index.js b/node_modules/@ai-sdk/openai-compatible/dist/index.js
+index f5902dd..9eca791 100644
+--- a/node_modules/@ai-sdk/openai-compatible/dist/index.js
++++ b/node_modules/@ai-sdk/openai-compatible/dist/index.js
+@@ -242,7 +242,7 @@ function convertToOpenAICompatibleChatMessages(prompt) {
+         }
+         messages.push({
+           role: "assistant",
+-          content: text,
++          content: text || null,
+           ...reasoning.length > 0 ? { reasoning_content: reasoning } : {},
+           tool_calls: toolCalls.length > 0 ? toolCalls : void 0,
+           ...metadata
+diff --git a/node_modules/@ai-sdk/openai-compatible/dist/index.mjs b/node_modules/@ai-sdk/openai-compatible/dist/index.mjs
+index 75d3b9d..66bda6d 100644
+--- a/node_modules/@ai-sdk/openai-compatible/dist/index.mjs
++++ b/node_modules/@ai-sdk/openai-compatible/dist/index.mjs
+@@ -224,7 +224,7 @@ function convertToOpenAICompatibleChatMessages(prompt) {
+         }
+         messages.push({
+           role: "assistant",
+-          content: text,
++          content: text || null,
+           ...reasoning.length > 0 ? { reasoning_content: reasoning } : {},
+           tool_calls: toolCalls.length > 0 ? toolCalls : void 0,
+           ...metadata
+diff --git a/node_modules/@ai-sdk/openai-compatible/dist/internal/index.js b/node_modules/@ai-sdk/openai-compatible/dist/internal/index.js
+index cea0b5a..0329596 100644
+--- a/node_modules/@ai-sdk/openai-compatible/dist/internal/index.js
++++ b/node_modules/@ai-sdk/openai-compatible/dist/internal/index.js
+@@ -179,7 +179,7 @@ function convertToOpenAICompatibleChatMessages(prompt) {
+         }
+         messages.push({
+           role: "assistant",
+-          content: text,
++          content: text || null,
+           ...reasoning.length > 0 ? { reasoning_content: reasoning } : {},
+           tool_calls: toolCalls.length > 0 ? toolCalls : void 0,
+           ...metadata
+diff --git a/node_modules/@ai-sdk/openai-compatible/dist/internal/index.mjs b/node_modules/@ai-sdk/openai-compatible/dist/internal/index.mjs
+index fdff782..df28e05 100644
+--- a/node_modules/@ai-sdk/openai-compatible/dist/internal/index.mjs
++++ b/node_modules/@ai-sdk/openai-compatible/dist/internal/index.mjs
+@@ -151,7 +151,7 @@ function convertToOpenAICompatibleChatMessages(prompt) {
+         }
+         messages.push({
+           role: "assistant",
+-          content: text,
++          content: text || null,
+           ...reasoning.length > 0 ? { reasoning_content: reasoning } : {},
+           tool_calls: toolCalls.length > 0 ? toolCalls : void 0,
+           ...metadata

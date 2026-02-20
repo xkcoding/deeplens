@@ -1,71 +1,40 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-interface ThreePanelLayoutProps {
-  navigation: React.ReactNode;
-  flow: React.ReactNode;
-  artifact: React.ReactNode;
+interface TwoPanelLayoutProps {
+  main: React.ReactNode;
+  sidebar: React.ReactNode;
 }
 
-const MIN_NAV = 200;
-const MIN_FLOW = 360;
-const MIN_ARTIFACT = 400;
-const COLLAPSED_NAV = 48;
-const STORAGE_KEY = "deeplens-panel-widths";
+const MIN_MAIN = 400;
+const MIN_SIDEBAR = 280;
+const STORAGE_KEY = "deeplens-sidebar-width";
 
-interface PanelWidths {
-  nav: number;
-  artifact: number;
-}
-
-function loadWidths(): PanelWidths {
+function loadSidebarWidth(): number {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as PanelWidths;
-      return {
-        nav: Math.max(parsed.nav, MIN_NAV),
-        artifact: Math.max(parsed.artifact, MIN_ARTIFACT),
-      };
+      return Math.max(parseInt(raw, 10), MIN_SIDEBAR);
     }
   } catch {
     // ignore
   }
-  return { nav: 260, artifact: 480 };
+  return 340;
 }
 
-function saveWidths(widths: PanelWidths) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+function saveSidebarWidth(width: number) {
+  localStorage.setItem(STORAGE_KEY, String(width));
 }
 
-export function ThreePanelLayout({
-  navigation,
-  flow,
-  artifact,
-}: ThreePanelLayoutProps) {
+export function ThreePanelLayout({ main, sidebar }: TwoPanelLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [widths, setWidths] = useState<PanelWidths>(loadWidths);
-  const [dragging, setDragging] = useState<"nav" | "artifact" | null>(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
+  const [dragging, setDragging] = useState(false);
 
-  // Responsive: collapse nav when window < 1200px
-  useEffect(() => {
-    const mql = window.matchMedia("(max-width: 1200px)");
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
-      setIsCollapsed(e.matches);
-    };
-    handler(mql);
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setDragging(true);
   }, []);
-
-  const handleMouseDown = useCallback(
-    (divider: "nav" | "artifact") => (e: React.MouseEvent) => {
-      e.preventDefault();
-      setDragging(divider);
-    },
-    [],
-  );
 
   useEffect(() => {
     if (!dragging) return;
@@ -73,33 +42,15 @@ export function ThreePanelLayout({
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const totalWidth = rect.width;
-
-      if (dragging === "nav") {
-        const newNav = Math.max(MIN_NAV, e.clientX - rect.left);
-        const remaining = totalWidth - newNav - 4 - 4; // two dividers
-        if (remaining - widths.artifact >= MIN_FLOW) {
-          setWidths((prev) => {
-            const next = { ...prev, nav: newNav };
-            saveWidths(next);
-            return next;
-          });
-        }
-      } else {
-        const newArtifact = Math.max(MIN_ARTIFACT, rect.right - e.clientX);
-        const effectiveNav = isCollapsed ? COLLAPSED_NAV : widths.nav;
-        const remaining = totalWidth - effectiveNav - newArtifact - 4 - 4;
-        if (remaining >= MIN_FLOW) {
-          setWidths((prev) => {
-            const next = { ...prev, artifact: newArtifact };
-            saveWidths(next);
-            return next;
-          });
-        }
+      const newSidebar = Math.max(MIN_SIDEBAR, rect.right - e.clientX);
+      const mainWidth = rect.width - newSidebar - 4; // divider
+      if (mainWidth >= MIN_MAIN) {
+        setSidebarWidth(newSidebar);
+        saveSidebarWidth(newSidebar);
       }
     };
 
-    const handleMouseUp = () => setDragging(null);
+    const handleMouseUp = () => setDragging(false);
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
@@ -107,9 +58,7 @@ export function ThreePanelLayout({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragging, widths.nav, widths.artifact, isCollapsed]);
-
-  const navWidth = isCollapsed ? COLLAPSED_NAV : widths.nav;
+  }, [dragging]);
 
   return (
     <div
@@ -120,49 +69,28 @@ export function ThreePanelLayout({
       )}
       style={{ cursor: dragging ? "col-resize" : undefined }}
     >
-      {/* Navigation Panel */}
-      <div
-        className="shrink-0 overflow-hidden"
-        style={{ width: navWidth }}
-      >
-        {navigation}
+      {/* Main Preview Panel (flex-1, takes most space) */}
+      <div className="min-w-0 flex-1 overflow-hidden" style={{ minWidth: MIN_MAIN }}>
+        {main}
       </div>
 
-      {/* Divider: Nav | Flow */}
-      {!isCollapsed && (
-        <div
-          onMouseDown={handleMouseDown("nav")}
-          className={cn(
-            "w-1 shrink-0 cursor-col-resize transition-colors duration-150",
-            dragging === "nav"
-              ? "bg-primary-400"
-              : "bg-neutral-200 hover:bg-primary-400",
-          )}
-        />
-      )}
-
-      {/* Flow Panel (flex-1 takes remaining space) */}
-      <div className="min-w-0 flex-1 overflow-hidden" style={{ minWidth: MIN_FLOW }}>
-        {flow}
-      </div>
-
-      {/* Divider: Flow | Artifact */}
+      {/* Divider */}
       <div
-        onMouseDown={handleMouseDown("artifact")}
+        onMouseDown={handleMouseDown}
         className={cn(
           "w-1 shrink-0 cursor-col-resize transition-colors duration-150",
-          dragging === "artifact"
+          dragging
             ? "bg-primary-400"
             : "bg-neutral-200 hover:bg-primary-400",
         )}
       />
 
-      {/* Artifact Panel */}
+      {/* Sidebar Panel */}
       <div
         className="shrink-0 overflow-hidden"
-        style={{ width: widths.artifact }}
+        style={{ width: sidebarWidth }}
       >
-        {artifact}
+        {sidebar}
       </div>
     </div>
   );

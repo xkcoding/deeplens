@@ -1,5 +1,6 @@
 /**
- * VitePress dev server — installs deps, finds available port, and starts dev server.
+ * VitePress dev server — installs deps and starts dev server on a fixed port.
+ * If the port is occupied by an old VitePress process, kills it first.
  */
 
 import { createServer } from "node:net";
@@ -22,12 +23,47 @@ function isPortAvailable(port: number): Promise<boolean> {
   });
 }
 
-async function findAvailablePort(startPort: number): Promise<number> {
-  let port = startPort;
-  while (!(await isPortAvailable(port))) {
-    port++;
+/** Kill whatever process occupies the given port (best-effort, cross-platform). */
+function killProcessOnPort(port: number): void {
+  try {
+    if (process.platform === "win32") {
+      // Windows: find PID via netstat, then taskkill
+      const out = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "ignore"],
+      });
+      const pids = new Set(
+        out.split("\n").map((l) => l.trim().split(/\s+/).pop()).filter(Boolean),
+      );
+      for (const pid of pids) {
+        try { execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" }); } catch { /* */ }
+      }
+    } else {
+      // macOS / Linux
+      execSync(`lsof -ti :${port} | xargs kill -9`, { stdio: "ignore" });
+    }
+  } catch {
+    // Process may not exist or permission denied — that's fine
   }
-  return port;
+}
+
+/** Claim a port: if occupied, try killing the old process. Throws if still occupied. */
+async function claimPort(port: number): Promise<void> {
+  if (await isPortAvailable(port)) return;
+
+  console.log(chalk.yellow(`Port ${port} occupied — killing old process…`));
+  killProcessOnPort(port);
+
+  // Wait up to 3s for port to free
+  for (let i = 0; i < 6; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    if (await isPortAvailable(port)) return;
+  }
+
+  throw new Error(
+    `Port ${port} is still occupied after killing old process. ` +
+    `Change the VitePress port in Settings or free the port manually.`,
+  );
 }
 
 /**
@@ -44,8 +80,8 @@ export async function startPreviewBackground(
     execSync("npm install", { cwd: docsDir, stdio: "inherit" });
   }
 
-  const requestedPort = options?.port ?? DEFAULT_PREVIEW_PORT;
-  const port = await findAvailablePort(requestedPort);
+  const port = options?.port ?? DEFAULT_PREVIEW_PORT;
+  await claimPort(port);
 
   const child = spawn("npx", ["vitepress", "dev", "--port", String(port)], {
     cwd: docsDir,
@@ -102,8 +138,8 @@ export async function startPreviewServer(
     execSync("npm install", { cwd: docsDir, stdio: "inherit" });
   }
 
-  const requestedPort = options?.port ?? DEFAULT_PORT;
-  const port = await findAvailablePort(requestedPort);
+  const port = options?.port ?? DEFAULT_PORT;
+  await claimPort(port);
 
   const args = ["vitepress", "dev", "--port", String(port)];
   if (options?.open) {

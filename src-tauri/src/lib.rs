@@ -452,20 +452,60 @@ fn graceful_shutdown(app_handle: &tauri::AppHandle) {
 // Main entry: run()
 // ---------------------------------------------------------------------------
 
-fn find_available_port(start: u16) -> u16 {
-    for port in start..start + 100 {
-        // Check both IPv4 and IPv6 — Hono binds to :: (all interfaces)
-        let ipv4_ok = std::net::TcpListener::bind(("0.0.0.0", port)).is_ok();
-        let ipv6_ok = std::net::TcpListener::bind(("::1", port)).is_ok();
-        if ipv4_ok && ipv6_ok {
-            return port;
-        }
+fn is_port_available(port: u16) -> bool {
+    // Check both IPv4 and IPv6 — Hono binds to :: (all interfaces)
+    let ipv4_ok = std::net::TcpListener::bind(("0.0.0.0", port)).is_ok();
+    let ipv6_ok = std::net::TcpListener::bind(("::1", port)).is_ok();
+    ipv4_ok && ipv6_ok
+}
+
+/// Try to claim the preferred port. If an old sidecar occupies it, shut it down.
+/// Returns Err if a non-sidecar process holds the port.
+fn resolve_port(port: u16) -> Result<u16, String> {
+    if is_port_available(port) {
+        return Ok(port);
     }
-    start // fallback
+
+    // Port is occupied — probe /health to see if it's an old DeepLens sidecar
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+        .map_err(|e| format!("HTTP client error: {e}"))?;
+
+    let health_url = format!("http://127.0.0.1:{port}/health");
+    match client.get(&health_url).send() {
+        Ok(resp) if resp.status().is_success() => {
+            eprintln!("Port {port} occupied by old sidecar — sending shutdown");
+            let shutdown_url = format!("http://127.0.0.1:{port}/api/shutdown");
+            let _ = client.post(&shutdown_url).send();
+
+            // Wait up to 5s for port to become free
+            for _ in 0..10 {
+                std::thread::sleep(Duration::from_millis(500));
+                if is_port_available(port) {
+                    eprintln!("Old sidecar released port {port}");
+                    return Ok(port);
+                }
+            }
+            Err(format!(
+                "Port {} still occupied after shutting down old sidecar. Try restarting the app.",
+                port,
+            ))
+        }
+        _ => Err(format!(
+            "Port {} is occupied by another service. Change the Sidecar Port in Settings and restart.",
+            port,
+        )),
+    }
 }
 
 pub fn run() {
-    let port: u16 = find_available_port(54321);
+    // Read preferred sidecar port from config (default 54321)
+    let preferred_port: u16 = load_all_config()
+        .ok()
+        .and_then(|c| c.get("sidecar_port")?.as_str().map(String::from))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(54321);
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -473,9 +513,21 @@ pub fn run() {
         .manage(SidecarState::default())
         .setup(move |app| {
             let handle = app.handle().clone();
+            let state = handle.state::<SidecarState>();
+
+            // Resolve port: reuse if free, kill old sidecar if needed, error if foreign
+            let port = match resolve_port(preferred_port) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("Port resolution failed: {e}");
+                    handle
+                        .emit("sidecar-fatal", serde_json::json!({ "error": e }))
+                        .ok();
+                    return Ok(());
+                }
+            };
 
             // Store port in state
-            let state = handle.state::<SidecarState>();
             *state.port.lock().unwrap() = Some(port);
 
             // 3.2 Spawn sidecar

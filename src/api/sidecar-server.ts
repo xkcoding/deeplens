@@ -70,6 +70,7 @@ export async function startSidecarServer(
   // ── VitePress preview state (declared early so analyze can kill it) ─
   let vitepressChild: ChildProcess | null = null;
   let vitepressPort: number | null = null;
+  let vitepressProjectPath: string | null = null;
 
   /** Check if the VitePress child process is still alive. */
   function isVitepressAlive(): boolean {
@@ -82,6 +83,7 @@ export async function startSidecarServer(
       vitepressChild.kill();
       vitepressChild = null;
       vitepressPort = null;
+      vitepressProjectPath = null;
     }
   }
 
@@ -167,8 +169,13 @@ export async function startSidecarServer(
       return c.json({ ok: false, error: "No docs found" }, 400);
     }
 
-    // If VitePress is already running, just return existing URL
-    if (isVitepressAlive() && vitepressPort) {
+    // If VitePress is already running for a different project, kill it first
+    if (isVitepressAlive() && vitepressProjectPath && vitepressProjectPath !== reqProjectPath) {
+      killVitepress();
+    }
+
+    // If VitePress is already running for the same project, just return existing URL
+    if (isVitepressAlive() && vitepressPort && vitepressProjectPath === reqProjectPath) {
       return c.json({ ok: true, url: `http://localhost:${vitepressPort}` });
     }
 
@@ -215,12 +222,14 @@ export async function startSidecarServer(
     });
     vitepressChild = child;
     vitepressPort = vpPort;
+    vitepressProjectPath = reqProjectPath;
 
     // Auto-cleanup when VitePress exits
     child.on("close", () => {
       if (vitepressChild === child) {
         vitepressChild = null;
         vitepressPort = null;
+        vitepressProjectPath = null;
       }
     });
 

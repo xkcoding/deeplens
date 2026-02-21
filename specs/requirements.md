@@ -1,8 +1,9 @@
 # DeepLens - 需求规格说明书
 
-> **版本**: 1.0.0
-> **日期**: 2026-02-19
+> **版本**: 1.1.0
+> **日期**: 2026-02-22
 > **状态**: 已确认
+> **变更记录**: v1.1.0 — SiliconFlow 替换为 OpenRouter；更新路线图状态；新增 Phase 5/6/7
 
 ---
 
@@ -46,12 +47,14 @@ DeepLens 是一款桌面端 AI Agent 应用，定位为 **"前置介入的主动
 | Node API | **Hono** (Node.js) | Agent 编排、API 服务，编译为独立二进制 |
 | Agent 探索/生成 | **claude-agent-sdk** (TypeScript) | Claude Code CLI 编程接口，自主工具调用循环 |
 | Agent 推理 | **Anthropic API** (Claude Sonnet/Opus) | 代码探索 + 文档生成（高质量推理） |
-| Q&A Agent | **Vercel AI SDK** | 轻量 Agent Loop，SiliconFlow LLM 推理 |
-| Embedding | **SiliconFlow** Embedding API | 文档 + 代码向量化 |
-| Q&A 推理 | **SiliconFlow** LLM API | 日常问答推理（成本优化） |
+| Q&A Agent | **Vercel AI SDK** | 轻量 Agent Loop，OpenRouter LLM 推理 |
+| Embedding | **OpenRouter** Embedding API | 文档 + 代码向量化（OpenAI-compatible 协议） |
+| Q&A 推理 | **OpenRouter** LLM API | 日常问答推理（成本优化） |
 | 向量存储 | **SQLite + sqlite-vec** | 本地轻量向量数据库 |
 | 文档引擎 | **VitePress** | 静态站点生成 + 本地预览 |
 | 语言支持 | Java / TypeScript / Python / Go | 优先支持主流语言，后续扩展 |
+
+> **变更说明 (v1.1.0)**: Embedding 和 Q&A 推理从 SiliconFlow 切换为 OpenRouter。原因：SiliconFlow Embedding API 在实际接入中存在兼容性问题，OpenRouter 提供统一的 OpenAI-compatible 接口，模型选择更丰富（默认 Embedding: `qwen/qwen3-embedding-8b`，LLM: `qwen/qwen3-32b`）。
 
 ### 2.2 架构拓扑
 
@@ -77,8 +80,8 @@ DeepLens 是一款桌面端 AI Agent 应用，定位为 **"前置介入的主动
 │  │  └───────────────────────────────┘  │            │
 │  │                                     │            │
 │  │  ┌───────────────────────────────┐  │            │
-│  │  │ Vercel AI SDK                 │  │ Silicon-   │
-│  │  │ → Fast Search (文档 RAG)       │──────► Flow  │
+│  │  │ Vercel AI SDK                 │  │ Open-      │
+│  │  │ → Fast Search (文档 RAG)       │──────► Router│
 │  │  │ → Deep Search (代码 RAG +      │  │ (Embed +  │
 │  │  │   Agent Loop + CoT)           │  │  LLM)     │
 │  │  └───────────────────────────────┘  │            │
@@ -101,8 +104,8 @@ DeepLens 是一款桌面端 AI Agent 应用，定位为 **"前置介入的主动
 |------|------|------|------|
 | 首次项目分析 + 文档生成 | 一次性 | Claude (Anthropic API) | 高 |
 | Git 增量更新 | 偶尔 | Claude (Anthropic API) | 中 |
-| 用户日常问答 (Fast/Deep) | 高频 | SiliconFlow LLM | 低 |
-| Embedding 向量化 | 一次性 + 增量 | SiliconFlow Embedding | 极低 |
+| 用户日常问答 (Fast/Deep) | 高频 | OpenRouter LLM | 低 |
+| Embedding 向量化 | 一次性 + 增量 | OpenRouter Embedding | 极低 |
 
 ---
 
@@ -171,7 +174,7 @@ DeepLens 是一款桌面端 AI Agent 应用，定位为 **"前置介入的主动
 ### 3.4 Phase 4: 索引 + 服务启动
 
 **向量化**:
-- 使用 SiliconFlow Embedding API
+- 使用 OpenRouter Embedding API（默认模型 `qwen/qwen3-embedding-8b`）
 - 文档 Markdown 分块 + 向量化 → SQLite-vec
 - 源码关键 Chunk 分块 + 向量化 → SQLite-vec
 
@@ -185,12 +188,12 @@ DeepLens 是一款桌面端 AI Agent 应用，定位为 **"前置介入的主动
 #### Fast Search (Layer 1)
 - 用户在 VitePress 页面内嵌 Chat 窗口提问
 - 检索 VitePress 文档向量库
-- SiliconFlow LLM 生成结构化回答
+- OpenRouter LLM 生成结构化回答
 - 响应快速，适合宏观问题
 
 #### Deep Search (Layer 2)
 - 用户切换到 Deep 模式
-- 启动 **Vercel AI SDK Agent Loop**（SiliconFlow LLM）
+- 启动 **Vercel AI SDK Agent Loop**（OpenRouter LLM）
 - Agent 可调用工具：向量检索、文件读取、grep 搜索
 - 多轮推理，追踪引用，深入代码细节
 - **Glass Box 体验**：CoT 思维链实时展示
@@ -294,14 +297,16 @@ Claude Code 支持通过环境变量切换 API 端点和认证方式，使用户
 
 > **背景**: 国内用户可通过 Coding Plan 等方式获得 Claude API 访问，其端点 URL 与官方不同。DeepLens 需要让用户自由配置，而不是硬编码官方地址。
 
-#### SiliconFlow 配置
+#### OpenRouter 配置
 
-| 配置项 | 说明 |
-|--------|------|
-| API Base URL | SiliconFlow API 端点 |
-| API Key | SiliconFlow 认证令牌 |
-| Embedding 模型 | 下拉选择，如 `bge-m3`, `bge-large-zh` 等 |
-| LLM 模型（Q&A 推理） | 下拉选择，如 `deepseek-v3`, `qwen-plus` 等 |
+| 配置项 | 环境变量 | 说明 |
+|--------|---------|------|
+| API Base URL | `OPENROUTER_BASE_URL` | OpenRouter API 端点，默认 `https://openrouter.ai/api/v1` |
+| API Key | `OPENROUTER_API_KEY` | OpenRouter 认证令牌 |
+| Embedding 模型 | `OPENROUTER_EMBED_MODEL` | 向量化模型，默认 `qwen/qwen3-embedding-8b` |
+| LLM 模型（Q&A 推理） | `OPENROUTER_LLM_MODEL` | 问答推理模型，默认 `qwen/qwen3-32b` |
+
+> **变更说明 (v1.1.0)**: 从 SiliconFlow 切换为 OpenRouter。OpenRouter 提供统一的 OpenAI-compatible 接口，通过 `@ai-sdk/openai-compatible` 适配器接入 Vercel AI SDK。支持项目级覆盖模型配置（存储在 `.deeplens/settings.json`）。
 
 #### 通用配置
 
@@ -314,8 +319,8 @@ Claude Code 支持通过环境变量切换 API 端点和认证方式，使用户
 ### 5.2 配置存储
 
 - 配置持久化到本地 SQLite（与 WorkAny 一致）
-- 敏感信息（API Key）加密存储
-- 首次启动时引导用户完成必要配置（至少需要 Claude API 和 SiliconFlow API 的 Key）
+- 敏感信息（API Key）加密存储（Tauri 端使用 AES-GCM + PBKDF2）
+- 首次启动时引导用户完成必要配置（至少需要 Claude API 和 OpenRouter API 的 Key）
 - 支持配置导入/导出（方便团队共享非敏感配置）
 
 ### 5.3 配置传递机制
@@ -324,19 +329,19 @@ Claude Code 支持通过环境变量切换 API 端点和认证方式，使用户
 设置界面 (React)
     │ Tauri IPC
     ▼
-Go/Rust 后端 → SQLite (持久化)
+Rust 后端 → SQLite (持久化)
     │ 启动 Sidecar 时注入
     ▼
 Node.js Sidecar
     ├─ claude-agent-sdk → 通过环境变量配置 (ANTHROPIC_BASE_URL, ANTHROPIC_API_KEY)
-    └─ Vercel AI SDK → 通过配置对象传递 (SiliconFlow baseURL, apiKey, model)
+    └─ Vercel AI SDK → 通过配置对象传递 (OpenRouter baseURL, apiKey, model)
 ```
 
 ---
 
 ## 6. MCP Server 接口定义
 
-### 5.1 工具列表
+### 6.1 工具列表
 
 ```json
 {
@@ -415,54 +420,56 @@ Node.js Sidecar
 
 > 注：设置界面在 Phase 3（桌面应用）中实现，Phase 1 CLI 阶段通过环境变量或 `.env` 文件传递配置。
 
-### Phase 1: CLI Agent 核心
+### Phase 1: CLI Agent 核心 ✅ 已完成
 
 **目标**: 跑通 "选目录 → Agent 探索 → 大纲确认 → 深度生成 → VitePress 预览"
 
-| 子任务 | 说明 |
-|--------|------|
-| 1.1 项目脚手架 | Node.js + TypeScript 项目，集成 claude-agent-sdk |
-| 1.2 自定义 MCP Tools | list_files, read_file, read_file_snippet, grep_search, write_file |
-| 1.3 探索 Agent (Phase 1) | "Code Archaeologist" System Prompt，输出 JSON 大纲 |
-| 1.4 CLI 大纲审查 | 打印大纲 → 用户 CLI 交互确认/修改 |
-| 1.5 生成 Agent (Phase 3) | "Deep Writer" System Prompt，Hub-and-Spoke 文档生成 |
-| 1.6 VitePress 集成 | 自动生成 VitePress 配置 + sidebar，本地启动预览 |
+| 子任务 | 说明 | 状态 |
+|--------|------|------|
+| 1.1 项目脚手架 | Node.js + TypeScript (ESM) 项目，集成 claude-agent-sdk | ✅ |
+| 1.2 自定义 MCP Tools | list_files, read_file, read_file_snippet, grep_search, write_file | ✅ |
+| 1.3 探索 Agent | "Code Archaeologist" System Prompt，输出 JSON 大纲 | ✅ |
+| 1.4 CLI 大纲审查 | 打印大纲 → 用户 CLI 交互确认/修改 | ✅ |
+| 1.5 生成 Agent | "Deep Writer" System Prompt，Hub-and-Spoke 文档生成 | ✅ |
+| 1.6 VitePress 集成 | 自动生成 VitePress 配置 + sidebar，本地启动预览 | ✅ |
 
-### Phase 2: Q&A 引擎 + RAG
+### Phase 2: Q&A 引擎 + RAG ✅ 已完成
 
 **目标**: 实现智能问答能力
 
-| 子任务 | 说明 |
-|--------|------|
-| 2.1 Embedding 管线 | SiliconFlow Embedding API 接入，文档/代码分块+向量化 |
-| 2.2 SQLite-vec 存储 | 本地向量存储、检索、增删管理 |
-| 2.3 Fast Search | 文档 RAG → SiliconFlow LLM 生成回答 |
-| 2.4 Deep Search | Vercel AI SDK Agent Loop，SiliconFlow LLM + 工具调用 |
-| 2.5 Hono API 服务 | REST 接口供前端/MCP 调用 |
+| 子任务 | 说明 | 状态 |
+|--------|------|------|
+| 2.1 Embedding 管线 | OpenRouter Embedding API 接入，文档/代码分块+向量化 | ✅ |
+| 2.2 SQLite-vec 存储 | 本地向量存储、检索、增删管理 | ✅ |
+| 2.3 Fast Search | 文档 RAG → OpenRouter LLM 生成回答 | ✅ |
+| 2.4 Deep Search | Vercel AI SDK Agent Loop，OpenRouter LLM + 工具调用 | ✅ |
+| 2.5 Hono API 服务 | REST 接口供前端/MCP 调用 | ✅ |
 
-### Phase 3: 桌面应用 (Tauri)
+### Phase 3: 桌面应用 (Tauri) ✅ 已完成
 
 **目标**: 完整桌面体验
 
-| 子任务 | 说明 |
-|--------|------|
-| 3.1 Tauri 脚手架 | 参考 WorkAny 结构，Tauri + React |
-| 3.2 Sidecar 打包 | Node runtime + Claude Code CLI 打包为 externalBin |
-| 3.3 Manus 风格 UI | 三栏布局：目录树 + 思考流 + 文档预览 |
-| 3.4 HITL 大纲编辑器 | 可拖拽树状图，节点操作 |
-| 3.5 嵌入式 Chat | VitePress 页面内 Chat 窗口，Fast/Deep 切换 |
-| 3.6 CoT 展示 | Deep Search 思维链实时渲染 |
-| 3.7 设置界面 | Claude API 配置（URL/Key/模型）、SiliconFlow 配置（URL/Key/Embedding 模型/LLM 模型）、通用配置（端口/存储路径） |
+| 子任务 | 说明 | 状态 |
+|--------|------|------|
+| 3.1 Tauri 脚手架 | 参考 WorkAny 结构，Tauri + React | ✅ |
+| 3.2 Sidecar 打包 | Node.js Sidecar 打包为 externalBin (pkg) | ✅ |
+| 3.3 Manus 风格 UI | 三栏布局：目录树 + 思考流 + 文档预览 | ✅ |
+| 3.4 HITL 大纲编辑器 | 可拖拽树状图，节点操作 | ✅ |
+| 3.5 嵌入式 Chat | VitePress 页面内 Chat 窗口，Fast/Deep 切换 | ✅ |
+| 3.6 CoT 展示 | Deep Search 思维链实时渲染 | ✅ |
+| 3.7 设置界面 | Claude API + OpenRouter 配置（URL/Key/模型）、通用配置（端口/存储路径） | ✅ |
 
-### Phase 4: MCP 服务 + 增量更新
+### Phase 4: MCP 服务 + 增量更新 ✅ 已完成
 
 **目标**: 生态集成 + 持续更新
 
-| 子任务 | 说明 |
-|--------|------|
-| 4.1 MCP Server | 实现 MCP 协议，暴露 4 个工具 |
-| 4.2 Git 增量分析 | git diff → 影响分析 → 局部重生成 → 索引更新 |
-| 4.3 导出能力 | VitePress build → 静态站点导出 |
+| 子任务 | 说明 | 状态 |
+|--------|------|------|
+| 4.1 MCP Server | 实现 MCP 协议，暴露 4 个工具 | ✅ |
+| 4.2 Git 增量分析 | git diff → 影响分析 → 局部重生成 → 索引更新 | ✅ |
+| 4.3 导出能力 | VitePress build → 静态站点导出 | ✅ |
+
+### Phase 5-7: 见 `specs/requirements-v2.md`
 
 ---
 
@@ -485,11 +492,11 @@ Node.js Sidecar
 | D13 | Agent 引擎 | claude-agent-sdk (TypeScript) | Claude Code CLI 编程接口 |
 | D14 | Agent 推理 | Claude (Anthropic API) | agent-sdk 原生支持 |
 | D15 | Q&A Agent | Vercel AI SDK | 轻量 Agent Loop，OpenAI-compatible |
-| D16 | Q&A/Embedding | SiliconFlow | 成本优化，高频场景用便宜模型 |
+| D16 | Q&A/Embedding | OpenRouter | 成本优化，高频场景用便宜模型，OpenAI-compatible 协议统一 |
 | D17 | 语言支持 | Java/TS/Python/Go 优先 | 主流语言先行 |
-| D18 | MVP 策略 | 分层递进 | CLI → Web → Desktop → MCP |
+| D18 | MVP 策略 | 分层递进 | CLI → Q&A → Desktop → MCP |
 | D19 | API 端点可配置 | 设置界面暴露 Base URL + Key | 支持国内 Coding Plan 代理，不硬编码官方地址 |
-| D20 | 模型可选择 | Claude 模型 + SiliconFlow 模型均可配置 | 用户按需选择性价比最优组合 |
+| D20 | 模型可选择 | Claude 模型 + OpenRouter 模型均可配置 | 用户按需选择性价比最优组合，支持项目级覆盖 |
 
 ---
 
@@ -502,4 +509,4 @@ Node.js Sidecar
 | VitePress 冷启动慢 | 用户体验差 | 预热机制 + HMR 热更新 |
 | MCP 端口冲突 | 外部 Agent 无法连接 | 动态端口 + 配置导出 |
 | claude-agent-sdk 版本兼容 | 升级可能 break | 锁定版本，跟踪 changelog |
-| SiliconFlow API 不稳定 | 问答功能受影响 | 错误重试 + 降级提示 |
+| OpenRouter API 不稳定 | 问答功能受影响 | 错误重试（3 次指数退避）+ 降级提示 |

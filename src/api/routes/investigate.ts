@@ -81,6 +81,16 @@ export function createInvestigateRoute(
             });
             break;
 
+          case "tool-error":
+            await stream.writeSSE({
+              event: "tool_error",
+              data: JSON.stringify({
+                tool: part.toolName,
+                error: String(part.error),
+              }),
+            });
+            break;
+
           case "reasoning-delta":
             await stream.writeSSE({
               event: "reasoning",

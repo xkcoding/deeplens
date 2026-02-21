@@ -102,8 +102,11 @@ function App() {
           const data = await res.json();
           const ready = (data.totalChunks ?? 0) > 0;
           setIndexReady(ready);
-          if (ready && vectorizeStatus === "idle") {
-            setVectorizeStatus("done");
+          if (ready) {
+            // Use functional update to avoid stale closure — the interval
+            // callback captures the initial vectorizeStatus and would
+            // otherwise override "running" with "done" prematurely.
+            setVectorizeStatus((prev) => (prev === "idle" ? "done" : prev));
           }
         }
       } catch {

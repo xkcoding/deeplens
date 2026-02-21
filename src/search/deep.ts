@@ -13,7 +13,7 @@ import {
   stepCountIs,
   type StreamTextResult,
 } from "ai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createDeepSearchTools } from "./tools.js";
 import type { VectorStore, SearchResult } from "../vector/store.js";
 import type { EmbeddingClient } from "../embedding/client.js";
@@ -94,13 +94,11 @@ export async function deepSearch(
   // 3. Set up tools and model
   const tools = createDeepSearchTools(store, embeddingClient, projectPath);
 
-  const openrouter = createOpenAICompatible({
-    name: "openrouter",
+  const openrouter = createOpenRouter({
     apiKey: config.openrouterApiKey!,
-    baseURL: config.openrouterBaseUrl ?? "https://openrouter.ai/api/v1",
   });
 
-  const model = openrouter.chatModel(
+  const model = openrouter.chat(
     config.openrouterLlmModel ?? "qwen/qwen3-32b",
   );
 
@@ -110,10 +108,15 @@ export async function deepSearch(
     system: buildSystemPrompt(projectPath, initialContext),
     messages: [...(history ?? []), { role: "user" as const, content: query }],
     tools,
+    toolChoice: "auto",
     maxOutputTokens: 16384,
     stopWhen: stepCountIs(10),
-    providerOptions: {
-      openrouter: { enable_thinking: true, thinking_budget: 4096 },
+    prepareStep: ({ stepNumber }) => {
+      // Force tool usage on the first step so the model actually starts investigating
+      if (stepNumber === 0) {
+        return { toolChoice: "required" as const };
+      }
+      return {};
     },
   });
 

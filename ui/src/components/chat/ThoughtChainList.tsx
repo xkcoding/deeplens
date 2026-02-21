@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Brain, Wrench, Loader2, ChevronDown, ChevronRight, Check } from "lucide-react";
+import { Brain, Wrench, Loader2, ChevronDown, ChevronRight, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ThoughtChainEntry } from "@/hooks/useChat";
 
@@ -101,15 +101,24 @@ export function ThoughtChainList({
 
 function ToolRow({ entry }: { entry: ThoughtChainEntry & { type: "tool" } }) {
   const desc = getToolDescription(entry.name, entry.args);
+  const isError = entry.status === "error";
 
   return (
-    <div className="flex items-center gap-1.5 border-l-tool rounded-r bg-white/60 px-2 py-1">
-      <Wrench className="size-3 shrink-0 text-info" />
-      <span className="flex-1 min-w-0 truncate text-xs text-neutral-600">
+    <div className={cn(
+      "flex items-center gap-1.5 rounded-r px-2 py-1",
+      isError ? "border-l-2 border-l-red-300 bg-red-50/60" : "border-l-tool bg-white/60",
+    )}>
+      <Wrench className={cn("size-3 shrink-0", isError ? "text-red-400" : "text-info")} />
+      <span className={cn("flex-1 min-w-0 truncate text-xs", isError ? "text-red-600" : "text-neutral-600")}>
         {desc}
+        {isError && entry.error && (
+          <span className="ml-1 text-[10px] text-red-400">({entry.error.slice(0, 60)})</span>
+        )}
       </span>
       {entry.status === "running" ? (
         <Loader2 className="size-3 shrink-0 animate-spin text-info" />
+      ) : isError ? (
+        <AlertTriangle className="size-3 shrink-0 text-red-400" />
       ) : entry.durationMs != null ? (
         <span className="shrink-0 text-[10px] text-neutral-400">
           {formatDuration(entry.durationMs)}

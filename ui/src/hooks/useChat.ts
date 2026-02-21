@@ -6,9 +6,10 @@ export interface ThoughtChainToolEntry {
   type: "tool";
   name: string;
   args: Record<string, unknown>;
-  status: "running" | "completed";
+  status: "running" | "completed" | "error";
   startedAt: number;
   durationMs?: number;
+  error?: string;
 }
 
 export interface ThoughtChainReasoningEntry {
@@ -213,7 +214,7 @@ export function useChat({ baseUrl }: UseChatOptions) {
                   startedAt: now,
                 });
                 scheduleUpdate();
-              } else if (eventType === "tool_end") {
+              } else if (eventType === "tool_end" || eventType === "tool_error") {
                 const toolName =
                   parsed.tool ?? parsed.toolName ?? "unknown";
                 for (let i = thoughtChain.length - 1; i >= 0; i--) {
@@ -223,8 +224,11 @@ export function useChat({ baseUrl }: UseChatOptions) {
                     entry.name === toolName &&
                     entry.status === "running"
                   ) {
-                    entry.status = "completed";
+                    entry.status = eventType === "tool_error" ? "error" : "completed";
                     entry.durationMs = Date.now() - entry.startedAt;
+                    if (eventType === "tool_error" && parsed.error) {
+                      entry.error = String(parsed.error);
+                    }
                     break;
                   }
                 }

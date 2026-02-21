@@ -8,7 +8,6 @@ import {
   Brain,
   Wrench,
   AlertTriangle,
-  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AgentEvent, NavItem } from "@/types/events";
@@ -18,7 +17,7 @@ interface ActivitySidebarProps {
   isRunning: boolean;
   isWaiting: boolean;
   navItems: NavItem[];
-  generateProgress: { current: number; total: number } | null;
+  generateProgress: { phase: string; current: number; total: number } | null;
   events: AgentEvent[];
   selectedDocId?: string;
   onSelectDoc?: (id: string) => void;
@@ -44,7 +43,7 @@ export function ActivitySidebar({
       </div>
 
       {/* Phase — fixed, never scrolls */}
-      <PhaseSection phase={phase} isRunning={isRunning} isWaiting={isWaiting} generateProgress={generateProgress} navItems={navItems} />
+      <PhaseSection phase={phase} isRunning={isRunning} isWaiting={isWaiting} generateProgress={generateProgress} />
 
       {/* Documents — scrollable, fills available space */}
       {navItems.length > 0 && (
@@ -67,13 +66,13 @@ interface PhaseSectionProps {
   phase: string | null;
   isRunning: boolean;
   isWaiting: boolean;
-  generateProgress: { current: number; total: number } | null;
+  generateProgress: { phase: string; current: number; total: number } | null;
 }
 
 type StepStatus = "completed" | "active" | "pending";
 
-function PhaseSection({ phase, isRunning, isWaiting, generateProgress, navItems }: PhaseSectionProps & { navItems: NavItem[] }) {
-  const steps = getPhaseSteps(phase, isRunning, isWaiting, generateProgress, navItems);
+function PhaseSection({ phase, isRunning, isWaiting, generateProgress }: PhaseSectionProps) {
+  const steps = getPhaseSteps(phase, isRunning, isWaiting, generateProgress);
 
   return (
     <div className="shrink-0 border-b border-neutral-100 px-4 py-3">
@@ -117,31 +116,13 @@ function StepIcon({ status }: { status: StepStatus }) {
   }
 }
 
-/** Count all nodes in a NavItem tree (domains + children). */
-function countNavNodes(items: NavItem[]): { total: number; completed: number } {
-  let total = 0;
-  let completed = 0;
-  for (const item of items) {
-    total++;
-    if (item.status === "completed") completed++;
-    if (item.children) {
-      for (const child of item.children) {
-        total++;
-        if (child.status === "completed") completed++;
-      }
-    }
-  }
-  return { total, completed };
-}
-
 function getPhaseSteps(
   phase: string | null,
   isRunning: boolean,
   isWaiting: boolean,
-  generateProgress: { current: number; total: number } | null,
-  navItems: NavItem[],
+  generateProgress: { phase: string; current: number; total: number } | null,
 ): Array<{ label: string; status: StepStatus; detail?: string }> {
-  // Determine current phase index
+  // Phase index: explore=0, outline_review=1, generate=2, overview=3, summary=4
   let currentPhaseIdx = -1;
   if (phase === "explore" || (!phase && isRunning)) {
     currentPhaseIdx = 0;
@@ -149,6 +130,10 @@ function getPhaseSteps(
     currentPhaseIdx = 1;
   } else if (phase === "generate") {
     currentPhaseIdx = 2;
+  } else if (phase === "overview") {
+    currentPhaseIdx = 3;
+  } else if (phase === "summary") {
+    currentPhaseIdx = 4;
   }
 
   // If not running and no phase, everything is pending
@@ -157,43 +142,51 @@ function getPhaseSteps(
       { label: "Explore", status: "pending" },
       { label: "Outline Review", status: "pending" },
       { label: "Generate", status: "pending" },
+      { label: "Overview", status: "pending" },
+      { label: "Summary", status: "pending" },
     ];
+  }
+
+  function stepStatus(idx: number, activeDetail?: string): { status: StepStatus; detail?: string } {
+    if (currentPhaseIdx > idx) return { status: "completed" };
+    if (currentPhaseIdx === idx) return { status: "active", detail: activeDetail };
+    return { status: "pending" };
   }
 
   const steps: Array<{ label: string; status: StepStatus; detail?: string }> = [];
 
   // Explore
-  if (currentPhaseIdx > 0) {
-    steps.push({ label: "Explore", status: "completed" });
-  } else if (currentPhaseIdx === 0) {
-    steps.push({ label: "Explore", status: "active" });
-  } else {
-    steps.push({ label: "Explore", status: "pending" });
-  }
+  steps.push({ label: "Explore", ...stepStatus(0) });
 
   // Outline Review
-  if (currentPhaseIdx > 1) {
-    steps.push({ label: "Outline Review", status: "completed" });
-  } else if (currentPhaseIdx === 1) {
-    steps.push({ label: "Outline Review", status: "active", detail: "waiting for confirmation" });
-  } else {
-    steps.push({ label: "Outline Review", status: "pending" });
-  }
+  steps.push({
+    label: "Outline Review",
+    ...stepStatus(1, "waiting for confirmation"),
+  });
 
-  // Generate — use navItems tree count for progress (includes sub_concepts)
+  // Generate — use generateProgress (domain-level, consistent with header button)
   if (!isRunning && currentPhaseIdx >= 2) {
     steps.push({ label: "Generate", status: "completed" });
-  } else if (currentPhaseIdx === 2) {
+  } else {
     let detail: string | undefined;
-    if (navItems.length > 0) {
-      const { total, completed } = countNavNodes(navItems);
-      detail = `${completed}/${total}`;
-    } else if (generateProgress) {
+    if (currentPhaseIdx === 2 && generateProgress) {
       detail = `${generateProgress.current}/${generateProgress.total}`;
     }
-    steps.push({ label: "Generate", status: "active", detail });
+    steps.push({ label: "Generate", ...stepStatus(2, detail) });
+  }
+
+  // Overview
+  if (!isRunning && currentPhaseIdx >= 3) {
+    steps.push({ label: "Overview", status: "completed" });
   } else {
-    steps.push({ label: "Generate", status: "pending" });
+    steps.push({ label: "Overview", ...stepStatus(3) });
+  }
+
+  // Summary
+  if (!isRunning && currentPhaseIdx >= 4) {
+    steps.push({ label: "Summary", status: "completed" });
+  } else {
+    steps.push({ label: "Summary", ...stepStatus(4) });
   }
 
   return steps;
@@ -277,8 +270,8 @@ function DocTreeNode({
           onClick={() => onSelect?.(item.id)}
           className="flex flex-1 items-center gap-1.5 truncate text-left"
         >
-          <DocStatusIndicator status={item.status} />
           <span className="flex-1 truncate">{item.title}</span>
+          <DocStatusIndicator status={item.status} />
         </button>
       </div>
 
@@ -311,7 +304,7 @@ function DocStatusIndicator({ status }: { status: NavItem["status"] }) {
         </span>
       );
     case "completed":
-      return <Check className="size-2.5 shrink-0 text-success" />;
+      return <CheckCircle2 className="size-3 shrink-0 text-success" />;
     default:
       return null;
   }

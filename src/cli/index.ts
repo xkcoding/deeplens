@@ -5,12 +5,13 @@ import { existsSync } from "node:fs";
 import chalk from "chalk";
 import { loadConfig, validateOpenRouterConfig } from "../config/env.js";
 import { runExplorer } from "../agent/explorer.js";
-import { runGenerator } from "../agent/generator.js";
+import { runGenerator, runOverviewGenerator, runSummaryGenerator } from "../agent/generator.js";
 import { reviewOutline } from "../outline/review.js";
 import { outlineSchema } from "../outline/types.js";
 import { scaffoldVitePress } from "../vitepress/scaffold.js";
 import { generateSidebar } from "../vitepress/sidebar.js";
 import { SIDEBAR_PLACEHOLDER } from "../vitepress/scaffold.js";
+import { sanitizeMermaidBlocks } from "../vitepress/sanitize-mermaid.js";
 import { startPreviewServer } from "../vitepress/server.js";
 import { Indexer } from "../embedding/indexer.js";
 import { EmbeddingClient } from "../embedding/client.js";
@@ -64,6 +65,20 @@ program
     // Generation phase
     console.log(chalk.cyan("\n[3/4] Generating documentation..."));
     await runGenerator(outline, absProjectPath);
+
+    // Overview generation (index.md) — synthesized from domain docs
+    console.log(chalk.cyan("\nGenerating project overview..."));
+    await runOverviewGenerator(outline, absProjectPath);
+
+    // Summary generation (summary.md) — project wrap-up page
+    console.log(chalk.cyan("\nGenerating project summary..."));
+    await runSummaryGenerator(outline, absProjectPath);
+
+    // Post-generation Mermaid syntax fix
+    const mermaidFixed = await sanitizeMermaidBlocks(docsDir);
+    if (mermaidFixed > 0) {
+      console.log(chalk.dim(`Fixed Mermaid syntax in ${mermaidFixed} file(s).`));
+    }
 
     // VitePress scaffolding + sidebar injection
     await scaffoldVitePress(docsDir, outline.project_name);
@@ -149,6 +164,20 @@ program
 
     console.log(chalk.cyan("Generating documentation..."));
     await runGenerator(outline, process.cwd());
+
+    // Overview generation (index.md) — synthesized from domain docs
+    console.log(chalk.cyan("\nGenerating project overview..."));
+    await runOverviewGenerator(outline, process.cwd());
+
+    // Summary generation (summary.md) — project wrap-up page
+    console.log(chalk.cyan("\nGenerating project summary..."));
+    await runSummaryGenerator(outline, process.cwd());
+
+    // Post-generation Mermaid syntax fix
+    const mermaidFixed = await sanitizeMermaidBlocks(docsDir);
+    if (mermaidFixed > 0) {
+      console.log(chalk.dim(`Fixed Mermaid syntax in ${mermaidFixed} file(s).`));
+    }
 
     await scaffoldVitePress(docsDir, outline.project_name);
     const sidebar = generateSidebar(outline, docsDir);

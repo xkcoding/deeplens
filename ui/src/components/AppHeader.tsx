@@ -179,89 +179,91 @@ export function AppHeader({
             ) : (
               <Play className="size-3.5" />
             )}
-            {isAnalyzing ? "Analyzing..." : "Analyze"}
+            {isAnalyzing
+              ? progress?.phase === "generate"
+                ? `Generating ${progress.current ?? ""}/${progress.total ?? ""}...`
+                : progress?.phase === "overview"
+                  ? "Generating Overview..."
+                  : progress?.phase === "summary"
+                    ? "Generating Summary..."
+                    : progress?.phase === "outline_review"
+                      ? "Review Outline..."
+                      : "Exploring..."
+              : "Analyze"}
           </Button>
 
-          {/* Preview -- available after analysis completes */}
-          {analysisComplete && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onPreview}
-              disabled={previewLoading}
-              className="gap-1.5"
-            >
-              {previewLoading ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-              {previewLoading ? "Starting..." : "Preview"}
-            </Button>
-          )}
+          {/* Preview -- always visible, disabled until analysis completes */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onPreview}
+            disabled={!analysisComplete || previewLoading || isAnalyzing}
+            className="gap-1.5"
+          >
+            {previewLoading ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Eye className="size-3.5" />
+            )}
+            {previewLoading ? "Starting..." : "Preview"}
+          </Button>
 
-          {/* Vectorize -- available after analysis completes */}
-          {analysisComplete && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onVectorize}
-              disabled={!openrouterConfigured || vectorizeStatus === "running"}
-              title={!openrouterConfigured ? "Configure OpenRouter API Key first" : undefined}
-              className="gap-1.5"
-            >
-              {vectorizeStatus === "running" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : vectorizeStatus === "done" ? (
-                <Check className="size-3.5 text-green-600" />
-              ) : (
-                <Sparkles className="size-3.5" />
-              )}
-              {vectorizeStatus === "running"
-                ? vectorizeProgress
-                  ? `Vectorizing ${vectorizeProgress.current}/${vectorizeProgress.total}`
-                  : "Vectorizing..."
-                : vectorizeStatus === "done"
-                  ? "Vectorized"
-                  : "Vectorize"}
-            </Button>
-          )}
+          {/* Vectorize -- always visible, disabled until analysis completes */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onVectorize}
+            disabled={!analysisComplete || !openrouterConfigured || vectorizeStatus === "running" || isAnalyzing}
+            title={!openrouterConfigured ? "Configure OpenRouter API Key first" : undefined}
+            className="gap-1.5"
+          >
+            {vectorizeStatus === "running" ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : vectorizeStatus === "done" ? (
+              <Check className="size-3.5 text-green-600" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            {vectorizeStatus === "running"
+              ? vectorizeProgress
+                ? `Vectorizing ${vectorizeProgress.current}/${vectorizeProgress.total}`
+                : "Vectorizing..."
+              : vectorizeStatus === "done"
+                ? "Vectorized"
+                : "Vectorize"}
+          </Button>
 
-          {/* Update -- incremental update from git changes */}
-          {analysisComplete && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onUpdate}
-              disabled={updateRunning || isAnalyzing}
-              className="gap-1.5"
-            >
-              {updateRunning ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="size-3.5" />
-              )}
-              {updateRunning ? "Updating..." : "Update"}
-            </Button>
-          )}
+          {/* Update -- always visible, disabled until analysis completes */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onUpdate}
+            disabled={!analysisComplete || updateRunning || isAnalyzing}
+            className="gap-1.5"
+          >
+            {updateRunning ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="size-3.5" />
+            )}
+            {updateRunning ? "Updating..." : "Update"}
+          </Button>
 
-          {/* Export -- build static site */}
-          {analysisComplete && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExport}
-              disabled={exportRunning}
-              className="gap-1.5"
-            >
-              {exportRunning ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Download className="size-3.5" />
-              )}
-              {exportRunning ? "Exporting..." : "Export"}
-            </Button>
-          )}
+          {/* Export -- always visible, disabled until analysis completes */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={!analysisComplete || exportRunning || isAnalyzing}
+            className="gap-1.5"
+          >
+            {exportRunning ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Download className="size-3.5" />
+            )}
+            {exportRunning ? "Exporting..." : "Export"}
+          </Button>
 
           <Button
             variant="ghost"

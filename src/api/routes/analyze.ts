@@ -9,7 +9,8 @@ import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { runExplorer } from "../../agent/explorer.js";
-import { runGenerator } from "../../agent/generator.js";
+import { runGenerator, runOverviewGenerator, runSummaryGenerator } from "../../agent/generator.js";
+import { sanitizeMermaidBlocks } from "../../vitepress/sanitize-mermaid.js";
 import { registerProject, updateProject } from "../../projects/registry.js";
 import type { Outline } from "../../outline/types.js";
 
@@ -145,20 +146,49 @@ export function createAnalyzeRoute(
         });
         await appendSession(sessionPath, "progress", genStartData);
 
+        const sseEventHandler = (event: { type: string; data: unknown }) => {
+          stream.writeSSE({
+            event: event.type,
+            data: JSON.stringify(event.data),
+          });
+          // doc_written: persist path only, strip content
+          if (event.type === "doc_written") {
+            appendSession(sessionPath, event.type, { path: (event.data as { path: string }).path });
+          } else {
+            appendSession(sessionPath, event.type, event.data);
+          }
+        };
+
         await runGenerator(confirmedOutline, targetPath, {
-          onEvent: (event) => {
-            stream.writeSSE({
-              event: event.type,
-              data: JSON.stringify(event.data),
-            });
-            // doc_written: persist path only, strip content
-            if (event.type === "doc_written") {
-              appendSession(sessionPath, event.type, { path: (event.data as { path: string }).path });
-            } else {
-              appendSession(sessionPath, event.type, event.data);
-            }
-          },
+          onEvent: sseEventHandler,
         });
+
+        // Phase 3: Generate Overview (index.md) — synthesized from domain docs
+        const overviewStartData = { phase: "overview", status: "started" };
+        await stream.writeSSE({
+          event: "progress",
+          data: JSON.stringify(overviewStartData),
+        });
+        await appendSession(sessionPath, "progress", overviewStartData);
+
+        await runOverviewGenerator(confirmedOutline, targetPath, {
+          onEvent: sseEventHandler,
+        });
+
+        // Phase 4: Generate Summary (summary.md) — project wrap-up page
+        const summaryStartData = { phase: "summary", status: "started" };
+        await stream.writeSSE({
+          event: "progress",
+          data: JSON.stringify(summaryStartData),
+        });
+        await appendSession(sessionPath, "progress", summaryStartData);
+
+        await runSummaryGenerator(confirmedOutline, targetPath, {
+          onEvent: sseEventHandler,
+        });
+
+        // Post-generation Mermaid syntax fix
+        await sanitizeMermaidBlocks(docsDir);
 
         // Update project registry (status: "ready", lastAnalyzed, lastCommit)
         let headCommit: string | undefined;

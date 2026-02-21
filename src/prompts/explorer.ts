@@ -138,6 +138,7 @@ Your final output MUST be a single JSON object with this exact structure. Output
 - Every string value must be properly escaped.
 - Do not include files you haven't actually seen — only reference files discovered via your tools.
 - The \`path\` field in files must be relative to the project root.
+- **NEVER leave fields empty.** Every \`reasoning\` MUST explain why the files form a coherent domain. Every \`why_included\` MUST explain why the file matters (not just repeat the role). Every sub_concept MUST have at least 1 file in its \`files\` array — distribute the domain's files into sub_concepts so each sub_concept has the files it covers. A file can appear in both the domain-level \`files\` and a sub_concept's \`files\`.
 
 Begin exploring the project now. Start with Phase 1 (Survey).`;
 }

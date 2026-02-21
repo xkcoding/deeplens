@@ -1,6 +1,8 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createGeneratorServer } from "./tools.js";
 import { getGeneratorPrompt } from "../prompts/generator.js";
+import { getOverviewPrompt } from "../prompts/overview.js";
+import { getSummaryPrompt } from "../prompts/summary.js";
 import type { Outline } from "../outline/types.js";
 import type { AgentEventCallback } from "./events.js";
 
@@ -72,7 +74,7 @@ export async function runGenerator(
     options: {
       systemPrompt: getGeneratorPrompt(filteredOutline),
       tools: [],
-      maxTurns: totalDomains * 10,
+      maxTurns: Math.max(60, totalDomains * 20),
       mcpServers: { deeplens: createGeneratorServer(projectRoot) },
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
@@ -175,5 +177,233 @@ export async function runGenerator(
     console.log(
       `\nGeneration complete. ${completedDomains}/${totalDomains} domains processed.`,
     );
+  }
+}
+
+/**
+ * Run the Overview Generator — a focused sub-agent that synthesizes index.md
+ * from the already-generated domain hub documents.
+ *
+ * Called AFTER runGenerator() completes all domain documentation.
+ */
+export async function runOverviewGenerator(
+  outline: Outline,
+  projectRoot: string,
+  options?: { onEvent?: AgentEventCallback },
+): Promise<void> {
+  const onEvent = options?.onEvent;
+
+  if (onEvent) {
+    onEvent({
+      type: "progress",
+      data: { phase: "overview", completed: 0, total: 1 },
+    });
+  } else {
+    console.log("\nGenerating project overview (index.md)...");
+  }
+
+  // Dynamic maxTurns: read N domain hubs + grep/snippet lookups + render_mermaid + write + thinking
+  const domainCount = outline.knowledge_graph.length;
+  const overviewMaxTurns = Math.max(30, domainCount * 3 + 15);
+
+  // Clean env: remove CLAUDECODE to avoid "nested session" rejection
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.CLAUDECODE;
+
+  for await (const message of query({
+    prompt: "Read the domain hub documents and generate the project overview page (index.md).",
+    options: {
+      systemPrompt: getOverviewPrompt(outline),
+      tools: [],
+      maxTurns: overviewMaxTurns,
+      mcpServers: { deeplens: createGeneratorServer(projectRoot) },
+      permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
+      persistSession: false,
+      env: cleanEnv,
+    },
+  })) {
+    switch (message.type) {
+      case "assistant": {
+        for (const block of message.message.content) {
+          if (block.type === "text") {
+            if (onEvent) {
+              onEvent({ type: "thought", data: { content: block.text } });
+            } else {
+              process.stdout.write(block.text);
+            }
+          } else if (block.type === "tool_use") {
+            if (onEvent) {
+              onEvent({
+                type: "tool_start",
+                data: { tool: block.name, args: block.input },
+              });
+            } else {
+              const args = JSON.stringify(block.input);
+              console.log(`\n\uD83D\uDD27 ${block.name}(${args})`);
+            }
+
+            // Detect index.md write to emit doc_written event
+            if (block.name === "mcp__deeplens__write_file") {
+              const input = block.input as Record<string, unknown>;
+              const filePath =
+                typeof input.path === "string" ? input.path : "";
+              const fileContent =
+                typeof input.content === "string" ? input.content : "";
+
+              if (onEvent && fileContent) {
+                onEvent({
+                  type: "doc_written",
+                  data: { path: filePath, content: fileContent },
+                });
+              }
+            }
+          }
+        }
+        break;
+      }
+      case "result": {
+        if (message.subtype !== "success") {
+          const errorList =
+            "errors" in message
+              ? (message.errors as string[])
+              : [];
+          const detail = errorList.length > 0
+            ? errorList.join("; ")
+            : `subtype=${message.subtype}`;
+          const errMsg = `Overview generator error (${message.subtype}): ${detail}`;
+          if (onEvent) {
+            onEvent({ type: "error", data: { message: errMsg, recoverable: false } });
+          }
+          throw new Error(errMsg);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  if (onEvent) {
+    onEvent({
+      type: "progress",
+      data: { phase: "overview", completed: 1, total: 1, status: "complete" },
+    });
+  } else {
+    console.log("\n\u2713 Overview (index.md) generated.");
+  }
+}
+
+/**
+ * Run the Summary Generator — a focused sub-agent that synthesizes summary.md
+ * from the overview and all domain hub documents.
+ *
+ * Called AFTER runOverviewGenerator() completes the overview page.
+ */
+export async function runSummaryGenerator(
+  outline: Outline,
+  projectRoot: string,
+  options?: { onEvent?: AgentEventCallback },
+): Promise<void> {
+  const onEvent = options?.onEvent;
+
+  if (onEvent) {
+    onEvent({
+      type: "progress",
+      data: { phase: "summary", completed: 0, total: 1 },
+    });
+  } else {
+    console.log("\nGenerating project summary (summary.md)...");
+  }
+
+  // Dynamic maxTurns: read index.md + N domain hubs + grep/snippet lookups + write + thinking
+  const domainCount = outline.knowledge_graph.length;
+  const summaryMaxTurns = Math.max(30, domainCount * 3 + 15);
+
+  // Clean env: remove CLAUDECODE to avoid "nested session" rejection
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.CLAUDECODE;
+
+  for await (const message of query({
+    prompt: "Read the overview and domain hub documents, then generate the project summary page (summary.md).",
+    options: {
+      systemPrompt: getSummaryPrompt(outline),
+      tools: [],
+      maxTurns: summaryMaxTurns,
+      mcpServers: { deeplens: createGeneratorServer(projectRoot) },
+      permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
+      persistSession: false,
+      env: cleanEnv,
+    },
+  })) {
+    switch (message.type) {
+      case "assistant": {
+        for (const block of message.message.content) {
+          if (block.type === "text") {
+            if (onEvent) {
+              onEvent({ type: "thought", data: { content: block.text } });
+            } else {
+              process.stdout.write(block.text);
+            }
+          } else if (block.type === "tool_use") {
+            if (onEvent) {
+              onEvent({
+                type: "tool_start",
+                data: { tool: block.name, args: block.input },
+              });
+            } else {
+              const args = JSON.stringify(block.input);
+              console.log(`\n\uD83D\uDD27 ${block.name}(${args})`);
+            }
+
+            // Detect summary.md write to emit doc_written event
+            if (block.name === "mcp__deeplens__write_file") {
+              const input = block.input as Record<string, unknown>;
+              const filePath =
+                typeof input.path === "string" ? input.path : "";
+              const fileContent =
+                typeof input.content === "string" ? input.content : "";
+
+              if (onEvent && fileContent) {
+                onEvent({
+                  type: "doc_written",
+                  data: { path: filePath, content: fileContent },
+                });
+              }
+            }
+          }
+        }
+        break;
+      }
+      case "result": {
+        if (message.subtype !== "success") {
+          const errorList =
+            "errors" in message
+              ? (message.errors as string[])
+              : [];
+          const detail = errorList.length > 0
+            ? errorList.join("; ")
+            : `subtype=${message.subtype}`;
+          const errMsg = `Summary generator error (${message.subtype}): ${detail}`;
+          if (onEvent) {
+            onEvent({ type: "error", data: { message: errMsg, recoverable: false } });
+          }
+          throw new Error(errMsg);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  if (onEvent) {
+    onEvent({
+      type: "progress",
+      data: { phase: "summary", completed: 1, total: 1, status: "complete" },
+    });
+  } else {
+    console.log("\n\u2713 Summary (summary.md) generated.");
   }
 }

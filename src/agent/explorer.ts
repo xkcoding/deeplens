@@ -112,7 +112,7 @@ async function runExplorerQuery(
     options: {
       systemPrompt: getExplorerPrompt(projectRoot),
       tools: [],
-      maxTurns: 100,
+      maxTurns: 200,
       mcpServers: { deeplens: createExplorerServer(projectRoot) },
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,

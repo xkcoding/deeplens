@@ -9,7 +9,7 @@ import { SetupWizard } from "@/components/settings/SetupWizard";
 import { OutlineEditor } from "@/components/outline/OutlineEditor";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { useSidecar } from "@/hooks/useSidecar";
-import { useAgentStream } from "@/hooks/useAgentStream";
+import { useAgentStream, OVERVIEW_NAV_ID, SUMMARY_NAV_ID } from "@/hooks/useAgentStream";
 import { useConfig } from "@/hooks/useConfig";
 import { useUpdate } from "@/hooks/useUpdate";
 import type { Outline } from "@/types/events";
@@ -53,6 +53,8 @@ function App() {
     vectorizeStatus: "idle" | "running" | "done";
   }
   const uiStateCache = useRef(new Map<string, UIState>());
+  // Keep original explorer outline so we can restore non-editable fields on confirm
+  const originalOutlineRef = useRef<Outline | null>(null);
 
   const baseUrl = sidecar.port ? `http://127.0.0.1:${sidecar.port}` : "";
   const { state: agentState, startAnalyze, confirmOutline, clearEvents, replaySession, loadFromDisk } = useAgentStream({ baseUrl });
@@ -65,9 +67,10 @@ function App() {
     }
   }, [configLoading, config.claude_api_key]);
 
-  // When agent produces an outline, set it for editing
+  // When agent produces an outline, store original and set OutlineData for editing
   useEffect(() => {
     if (agentState.outline && agentState.isWaiting) {
+      originalOutlineRef.current = agentState.outline;
       const converted: OutlineData = {
         project_name: agentState.outline.project_name,
         summary: agentState.outline.summary,
@@ -142,10 +145,12 @@ function App() {
       });
   }, [currentProject, baseUrl, replaySession, loadFromDisk]);
 
-  // Derived: analysis is complete when not running, has navItems, and has a "done" event
+  // Derived: analysis is complete when not running and has generated content.
+  // A "done" event means the full pipeline finished; documents.size > 0 covers
+  // partially-completed generate sessions restored from disk.
   const analysisComplete = !agentState.isRunning
     && agentState.navItems.length > 0
-    && agentState.events.some((e) => e.type === "done");
+    && (agentState.events.some((e) => e.type === "done") || agentState.documents.size > 0);
 
   // Derive the content to preview: selected doc > active doc > nothing
   const previewContent = useMemo(() => {
@@ -161,6 +166,22 @@ function App() {
     };
 
     if (selectedNavId && agentState.documents.size > 0) {
+      // Overview item maps to index.md (top-level, not under domains/)
+      if (selectedNavId === OVERVIEW_NAV_ID) {
+        const overviewContent = agentState.documents.get("index.md");
+        if (overviewContent) {
+          return { content: overviewContent, title: "Overview" };
+        }
+      }
+
+      // Summary item maps to summary.md (top-level, not under domains/)
+      if (selectedNavId === SUMMARY_NAV_ID) {
+        const summaryContent = agentState.documents.get("summary.md");
+        if (summaryContent) {
+          return { content: summaryContent, title: "Summary" };
+        }
+      }
+
       // Compute expected document path from navItem ID:
       //   Domain (id: "data-access")        → "domains/data-access/index.md"
       //   Child  (id: "data-access/repo")   → "domains/data-access/repo.md"
@@ -208,7 +229,7 @@ function App() {
     if (!agentState.isRunning) return null;
     if (agentState.generateProgress) {
       return {
-        phase: "generate",
+        phase: agentState.generateProgress.phase,
         current: agentState.generateProgress.current,
         total: agentState.generateProgress.total,
       };
@@ -216,35 +237,57 @@ function App() {
     if (agentState.isWaiting) {
       return { phase: "outline_review" };
     }
-    if (agentState.phase === "explore" || agentState.isRunning) {
-      return { phase: "explore" };
+    // Use agentState.phase directly — covers explore, generate, overview, summary
+    if (agentState.phase) {
+      return { phase: agentState.phase };
     }
-    return null;
+    return { phase: "explore" };
   }, [agentState.isRunning, agentState.generateProgress, agentState.isWaiting, agentState.phase]);
 
   const handleConfirmOutline = useCallback(
     (data: OutlineData) => {
       if (!currentProject) return;
+      const original = originalOutlineRef.current;
+
       const backendOutline = {
         project_name: data.project_name,
         summary: data.summary,
         detected_stack: data.detected_stack,
-        knowledge_graph: data.knowledge_graph.map((d) => ({
-          id: d.id,
-          title: d.title,
-          description: d.description,
-          reasoning: "",
-          files: (d.files ?? []).map((f) => ({
-            path: f.path,
-            role: f.role,
-            why_included: "",
-          })),
-          sub_concepts: (d.sub_concepts ?? []).map((sc) => ({
-            name: sc.name,
-            description: sc.description ?? "",
-            files: [],
-          })),
-        })),
+        knowledge_graph: data.knowledge_graph.map((d) => {
+          // Restore non-editable fields from the original explorer outline
+          const origDomain = original?.knowledge_graph.find((od) => od.id === d.id);
+
+          return {
+            id: d.id,
+            title: d.title,
+            description: d.description,
+            reasoning: origDomain?.reasoning ?? d.description,
+            files: (d.files ?? []).map((f) => {
+              const origFile = origDomain?.files.find((of) => of.path === f.path);
+              return {
+                path: f.path,
+                role: f.role,
+                why_included: origFile?.why_included ?? f.role,
+              };
+            }),
+            sub_concepts: (d.sub_concepts ?? []).map((sc) => {
+              // Match by name — the frontend id is derived from name
+              const origSc = origDomain?.sub_concepts?.find(
+                (osc) => osc.name === sc.name,
+              );
+              return {
+                name: sc.name,
+                description: sc.description ?? "",
+                // Restore original files; for user-added sub_concepts use domain files as fallback
+                files: origSc?.files ?? (origDomain?.files ?? []).slice(0, 1).map((f) => ({
+                  path: f.path,
+                  role: f.role,
+                  why_included: f.why_included ?? f.role,
+                })),
+              };
+            }),
+          };
+        }),
         ignored_files: data.ignored_files ?? [],
       };
       confirmOutline(currentProject, backendOutline as Outline);

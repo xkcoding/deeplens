@@ -25,6 +25,8 @@ import {
   type DomainData,
   type ValidationError,
 } from "./OutlineValidation";
+import { OverviewSection } from "./OverviewSection";
+import { SummarySection } from "./SummarySection";
 
 interface OutlineEditorProps {
   outline: OutlineData;
@@ -267,6 +269,9 @@ export function OutlineEditor({
       {/* Domain list */}
       <ScrollArea className="flex-1">
         <div className="space-y-2 p-4">
+          {/* Overview label — fixed above domains, not sortable */}
+          <OverviewSection />
+
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -303,6 +308,9 @@ export function OutlineEditor({
               )}
             </DragOverlay>
           </DndContext>
+
+          {/* Summary label — pinned at the bottom, not sortable */}
+          <SummarySection />
         </div>
       </ScrollArea>
 

@@ -8,7 +8,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { getChangedFiles, getHeadCommit } from "./diff.js";
 import { traceImpact, type ImpactResult } from "./impact.js";
-import { runGenerator } from "../agent/generator.js";
+import { runGenerator, runOverviewGenerator, runSummaryGenerator } from "../agent/generator.js";
+import { sanitizeMermaidBlocks } from "../vitepress/sanitize-mermaid.js";
 import { outlineSchema, type Outline } from "../outline/types.js";
 import { Indexer } from "../embedding/indexer.js";
 import { loadConfig, validateOpenRouterConfig } from "../config/env.js";
@@ -115,6 +116,20 @@ export async function runIncrementalUpdate(
     await runGenerator(outline, projectRoot, {
       onEvent: onEvent as AgentEventCallback | undefined,
     });
+
+    // Overview generation (index.md) — synthesized from domain docs
+    await runOverviewGenerator(outline, projectRoot, {
+      onEvent: onEvent as AgentEventCallback | undefined,
+    });
+
+    // Summary generation (summary.md) — project wrap-up page
+    await runSummaryGenerator(outline, projectRoot, {
+      onEvent: onEvent as AgentEventCallback | undefined,
+    });
+
+    // Post-generation Mermaid syntax fix
+    const docsDir = path.join(deeplensDir, "docs");
+    await sanitizeMermaidBlocks(docsDir);
 
     // Re-index everything
     await reindexDocs(projectRoot, onEvent);

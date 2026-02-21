@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 const fileEntrySchema = z.object({
-  path: z.string(),
-  role: z.string(),
-  why_included: z.string(),
+  path: z.string().min(1),
+  role: z.string().min(1),
+  why_included: z.string().min(1, "why_included must explain why this file matters for the domain"),
 });
 
 type SubConcept = {
@@ -15,26 +15,44 @@ type SubConcept = {
 
 const subConceptSchema: z.ZodType<SubConcept> = z.lazy(() =>
   z.object({
-    name: z.string(),
-    description: z.string(),
-    files: z.array(fileEntrySchema),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    files: z.array(fileEntrySchema).min(1, "each sub_concept must list the files it covers"),
     sub_concepts: z.array(subConceptSchema).optional(),
   }),
 );
 
 const domainSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  description: z.string(),
-  reasoning: z.string(),
-  files: z.array(fileEntrySchema),
-  sub_concepts: z.array(subConceptSchema).optional(),
+  id: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  reasoning: z.string().min(1, "reasoning must explain why these files form a coherent domain"),
+  files: z.array(fileEntrySchema).min(1),
+  sub_concepts: z.array(subConceptSchema).min(2, "each domain must have at least 2 sub_concepts").optional(),
+});
+
+const overviewSchema = z.object({
+  architecture: z.string().min(1),
+  tech_stack_roles: z.array(
+    z.object({
+      name: z.string().min(1),
+      role: z.string().min(1),
+    }),
+  ),
+  key_flows: z.array(
+    z.object({
+      name: z.string().min(1),
+      description: z.string().min(1),
+    }),
+  ),
+  project_structure: z.string().min(1),
 });
 
 export const outlineSchema = z.object({
   project_name: z.string(),
   summary: z.string(),
   detected_stack: z.array(z.string()),
+  overview: overviewSchema.optional(),
   knowledge_graph: z.array(domainSchema),
   ignored_files: z.array(
     z.object({

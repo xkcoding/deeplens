@@ -13,8 +13,8 @@ function sanitizeId(id: string): string {
 
 /** Wrap label in double quotes to safely handle special characters */
 function quoteLabel(label: string): string {
-  // Escape inner double quotes
-  const escaped = label.replace(/"/g, "#quot;");
+  // Collapse newlines → space, then escape inner double quotes
+  const escaped = label.replace(/\r?\n/g, " ").replace(/"/g, "#quot;");
   return `"${escaped}"`;
 }
 
@@ -188,7 +188,7 @@ function renderSequence(diagram: SequenceDiagram): string {
     const from = sanitizeId(msg.from);
     const to = sanitizeId(msg.to);
     const arrow = renderMessageArrow(msg.type);
-    const label = msg.label.replace(/"/g, "'");
+    const label = msg.label.replace(/\r?\n/g, " ").replace(/"/g, "'");
 
     if (msg.activate) {
       lines.push(`    ${from} ${arrow} +${to}: ${label}`);
@@ -203,7 +203,8 @@ function renderSequence(diagram: SequenceDiagram): string {
   if (diagram.notes) {
     for (const note of diagram.notes) {
       const over = note.over.map(sanitizeId).join(", ");
-      lines.push(`    note over ${over}: ${note.text}`);
+      const noteText = note.text.replace(/\r?\n/g, " ");
+      lines.push(`    note over ${over}: ${noteText}`);
     }
   }
 

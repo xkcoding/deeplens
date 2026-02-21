@@ -5,7 +5,9 @@
 
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { runGenerator } from "../../agent/generator.js";
+import path from "node:path";
+import { runGenerator, runOverviewGenerator, runSummaryGenerator } from "../../agent/generator.js";
+import { sanitizeMermaidBlocks } from "../../vitepress/sanitize-mermaid.js";
 import { outlineSchema } from "../../outline/types.js";
 
 export function createGenerateRoute(defaultProjectPath: string): Hono {
@@ -33,14 +35,30 @@ export function createGenerateRoute(defaultProjectPath: string): Hono {
 
     return streamSSE(c, async (stream) => {
       try {
+        const sseEventHandler = (event: { type: string; data: unknown }) => {
+          stream.writeSSE({
+            event: event.type,
+            data: JSON.stringify(event.data),
+          });
+        };
+
         await runGenerator(outline, targetPath, {
-          onEvent: (event) => {
-            stream.writeSSE({
-              event: event.type,
-              data: JSON.stringify(event.data),
-            });
-          },
+          onEvent: sseEventHandler,
         });
+
+        // Overview generation (index.md) — synthesized from domain docs
+        await runOverviewGenerator(outline, targetPath, {
+          onEvent: sseEventHandler,
+        });
+
+        // Summary generation (summary.md) — project wrap-up page
+        await runSummaryGenerator(outline, targetPath, {
+          onEvent: sseEventHandler,
+        });
+
+        // Post-generation Mermaid syntax fix
+        const docsDir = path.join(targetPath, ".deeplens", "docs");
+        await sanitizeMermaidBlocks(docsDir);
 
         await stream.writeSSE({
           event: "done",

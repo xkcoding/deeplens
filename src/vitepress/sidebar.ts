@@ -22,47 +22,36 @@ function fileNameToTitle(fileName: string): string {
 
 /**
  * Build sidebar group for a domain by scanning its actual docs directory.
- * Falls back to outline metadata if the directory doesn't exist.
+ * The domain title itself links to the hub (index.md).
+ * Only spoke files appear as children — no redundant "Overview" child.
  */
 function buildDomainGroup(domain: Domain, docsDir: string): SidebarItem {
   const domainDir = path.join(docsDir, "domains", domain.id);
   const items: SidebarItem[] = [];
 
   if (existsSync(domainDir)) {
-    // Scan actual generated files
+    // Scan actual generated files — only spoke files as children
     const files = readdirSync(domainDir)
-      .filter((f) => f.endsWith(".md"))
+      .filter((f) => f.endsWith(".md") && f !== "index.md")
       .sort();
 
-    // index.md first as "Overview"
-    if (files.includes("index.md")) {
-      items.push({
-        text: "Overview",
-        link: `/domains/${domain.id}/`,
-      });
-    }
-
-    // Remaining .md files as spokes
     for (const file of files) {
-      if (file === "index.md") continue;
       items.push({
         text: fileNameToTitle(file),
         link: `/domains/${domain.id}/${file.replace(/\.md$/, "")}`,
       });
     }
-  } else {
-    // Fallback: just link to domain hub
-    items.push({
-      text: "Overview",
-      link: `/domains/${domain.id}/`,
-    });
   }
 
-  return {
+  const result: SidebarItem = {
     text: domain.title,
-    collapsed: false,
-    items,
+    link: `/domains/${domain.id}/`,
   };
+  if (items.length > 0) {
+    result.collapsed = false;
+    result.items = items;
+  }
+  return result;
 }
 
 /**
@@ -74,13 +63,17 @@ export function generateSidebar(
   outline: Outline,
   docsDir: string,
 ): Record<string, unknown> {
+  const overview: SidebarItem = { text: "Overview", link: "/" };
+
   const groups: SidebarItem[] = outline.knowledge_graph.map((d, index) => {
     const group = buildDomainGroup(d, docsDir);
     group.text = `${index + 1}. ${group.text}`;
     return group;
   });
 
+  const summary: SidebarItem = { text: "Summary", link: "/summary" };
+
   return {
-    "/": groups,
+    "/": [overview, ...groups, summary],
   };
 }

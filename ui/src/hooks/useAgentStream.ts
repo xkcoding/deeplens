@@ -14,7 +14,7 @@ export interface AgentStreamState {
   error: string | null;
   documents: Map<string, string>;
   navItems: NavItem[];
-  generateProgress: { current: number; total: number } | null;
+  generateProgress: { phase: string; current: number; total: number } | null;
   activeDocPath: string | null;
 }
 
@@ -63,19 +63,44 @@ function fileNameToTitle(slug: string): string {
     .join(" ");
 }
 
+/** Sentinel id for the Overview nav item (index.md). */
+export const OVERVIEW_NAV_ID = "__overview__";
+
+/** Sentinel id for the Summary nav item (summary.md). */
+export const SUMMARY_NAV_ID = "__summary__";
+
 /**
  * Build NavItem tree from outline's knowledge_graph.
+ * Prepends an "Overview" entry for the top-level index.md.
  * Children are NOT pre-populated from sub_concepts — they are built dynamically
  * from actual doc_written events, keeping the sidebar consistent with VitePress.
  */
 function outlineToNavItems(outline: Outline): NavItem[] {
-  return outline.knowledge_graph.map((d) => ({
+  const overview: NavItem = {
+    id: OVERVIEW_NAV_ID,
+    title: "Overview",
+    type: "domain" as const,
+    status: "pending" as const,
+    children: [],
+  };
+
+  const domains = outline.knowledge_graph.map((d) => ({
     id: d.id,
     title: d.title,
     type: "domain" as const,
     status: "pending" as const,
     children: [],
   }));
+
+  const summary: NavItem = {
+    id: SUMMARY_NAV_ID,
+    title: "Summary",
+    type: "domain" as const,
+    status: "pending" as const,
+    children: [],
+  };
+
+  return [overview, ...domains, summary];
 }
 
 /**
@@ -265,6 +290,20 @@ function applyEvent(prev: AgentStreamState, event: AgentEvent): AgentStreamState
           nextNavItems = updateNavItemStatus(source, dId, "generating");
         }
       }
+    } else if (event.path === "index.md") {
+      // Top-level index.md: mark Overview as completed (single-file, one write = done)
+      nextNavItems = updateNavItemStatus(
+        nextNavItems === prev.navItems ? prev.navItems : nextNavItems,
+        OVERVIEW_NAV_ID,
+        "completed",
+      );
+    } else if (event.path === "summary.md") {
+      // Top-level summary.md: mark Summary as completed
+      nextNavItems = updateNavItemStatus(
+        nextNavItems === prev.navItems ? prev.navItems : nextNavItems,
+        SUMMARY_NAV_ID,
+        "completed",
+      );
     }
   }
 
@@ -282,12 +321,19 @@ function applyEvent(prev: AgentStreamState, event: AgentEvent): AgentStreamState
     nextNavItems = outlineToNavItems(event.outline);
   }
 
-  // Handle progress with generate phase: update generateProgress
-  if (event.type === "progress" && event.phase === "generate") {
+  // Handle progress with generate/overview/summary phase: update generateProgress
+  if (event.type === "progress" && (event.phase === "generate" || event.phase === "overview" || event.phase === "summary")) {
     nextGenerateProgress = {
+      phase: event.phase,
       current: event.current,
       total: event.total,
     };
+  }
+
+  // Reset generateProgress when entering a new phase so the header
+  // doesn't show stale progress from the previous phase.
+  if (event.type === "phase") {
+    nextGenerateProgress = null;
   }
 
   return {
@@ -425,11 +471,10 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         }
       }
 
-      // 3. Set final state
+      // 3. Set final state — preserve isWaiting from replay (e.g. HITL paused sessions)
       setState({
         ...replayState,
         isRunning: false,
-        isWaiting: false,
       });
     },
     [options.baseUrl],

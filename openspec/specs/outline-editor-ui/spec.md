@@ -1,82 +1,53 @@
 ## ADDED Requirements
 
-### Requirement: Visual outline tree display
-The outline editor SHALL render the Agent-generated outline as an interactive tree component. Each domain SHALL be displayed as a top-level node with its title, description (truncated), and file count badge. Sub-concepts SHALL be displayed as nested child nodes. The tree SHALL use indentation and connector lines to show hierarchy.
+### Requirement: Overview section in outline editor
+The outline editor SHALL render an overview section above the domain tree when the outline contains an `overview` field. The overview section SHALL display: a header labeled "Overview" with a distinct icon (e.g., Globe or BookOpen), editable fields for `architecture`, `tech_stack_roles`, `key_flows`, and `project_structure`. The overview section SHALL have a visually distinct background (e.g., subtle primary tint) to separate it from domain nodes.
 
-#### Scenario: Render multi-domain outline
-- **WHEN** the exploration agent produces an outline with 5 domains and 3 sub-concepts
-- **THEN** the editor displays a tree with 5 top-level nodes and nested sub-concept nodes
+#### Scenario: Overview section renders above domains
+- **WHEN** the outline editor loads an outline with overview data and 5 domains
+- **THEN** the overview section appears at the top, followed by the 5 domain nodes
 
-### Requirement: Drag-and-drop reordering
-The outline editor SHALL support drag-and-drop to reorder domains and move sub-concepts between domains. The system SHALL use `@dnd-kit/core` + `@dnd-kit/sortable` for the drag interaction. Drop targets SHALL be highlighted during drag. The resulting tree state SHALL be maintained in React state.
+#### Scenario: Overview not shown for legacy outlines
+- **WHEN** the outline editor loads an outline without an overview field (backward compatibility)
+- **THEN** the editor renders only the domain tree without an overview section
 
-#### Scenario: Reorder domains
-- **WHEN** the user drags domain "Auth" above domain "Payment"
-- **THEN** the tree reorders to place "Auth" before "Payment"
+### Requirement: Summary section in outline editor
+The outline editor SHALL render a summary section below the domain tree. The summary section SHALL display: a header labeled "Summary" with a FileText icon, a note indicating "Auto-generated after overview". The summary section SHALL have a neutral visual style (neutral border, subtle background) to distinguish it from domains and the overview.
 
-#### Scenario: Move sub-concept between domains
-- **WHEN** the user drags sub-concept "JWT Validation" from domain "Auth" to domain "Security"
-- **THEN** "JWT Validation" appears as a child of "Security" and is removed from "Auth"
+#### Scenario: Summary section renders below domains
+- **WHEN** the outline editor loads an outline with 5 domains
+- **THEN** the summary section appears below all domain nodes
 
-### Requirement: Inline node rename
-The outline editor SHALL support inline renaming of domain and sub-concept titles. Double-clicking a node title SHALL activate an inline text input. Pressing Enter or clicking outside SHALL confirm the rename. Pressing Escape SHALL cancel.
+#### Scenario: Summary section not sortable
+- **WHEN** the user drags domain nodes
+- **THEN** the summary section remains fixed at the bottom and cannot be reordered
 
-#### Scenario: Rename domain
-- **WHEN** the user double-clicks the title "user-authentication"
-- **THEN** the title becomes an editable text input pre-filled with "user-authentication"
+### Requirement: Overview and Summary drag exclusion
+The overview section SHALL NOT have a drag handle and SHALL NOT participate in drag-and-drop interactions. The summary section SHALL NOT have a drag handle and SHALL NOT participate in drag-and-drop interactions. Domain nodes SHALL only be reorderable among themselves, between the overview and summary sections. Drop operations SHALL NOT allow domains to be placed above the overview or below the summary.
 
-#### Scenario: Confirm rename
-- **WHEN** the user types "auth-module" and presses Enter
-- **THEN** the node title updates to "auth-module" and the `id` field updates to the kebab-case version
+#### Scenario: Overview has no drag handle
+- **WHEN** the outline editor renders with overview, domains, and summary
+- **THEN** the overview section has no drag handle icon; domain nodes retain their drag handles
 
-#### Scenario: Cancel rename
-- **WHEN** the user presses Escape during inline editing
-- **THEN** the title reverts to its original value
+#### Scenario: Summary has no drag handle
+- **WHEN** the outline editor renders with overview, domains, and summary
+- **THEN** the summary section has no drag handle icon
 
-### Requirement: Node context menu
-The outline editor SHALL provide a right-click context menu on each node with actions: "Rename", "Delete", "Add Sub-Concept" (for domain nodes), and "View Files" (shows mapped source files). Deleting a domain SHALL prompt for confirmation.
+#### Scenario: Cannot drag domain above overview or below summary
+- **WHEN** the user attempts to drag a domain to the position above the overview or below the summary
+- **THEN** the drop is rejected and the domain returns to its original position
 
-#### Scenario: Delete domain with confirmation
-- **WHEN** the user right-clicks a domain and selects "Delete"
-- **THEN** a confirmation dialog appears: "Delete domain 'Auth' and its 3 sub-concepts?"
+### Requirement: Overview inline editing
+The overview fields SHALL be editable inline within the outline editor. `architecture` and `project_structure` SHALL use expandable text areas. `tech_stack_roles` SHALL display as an editable list of name-role pairs with add/remove controls. `key_flows` SHALL display as an editable list of name-description pairs with add/remove controls. Changes SHALL update the outline state in real-time.
 
-#### Scenario: Add sub-concept
-- **WHEN** the user right-clicks a domain and selects "Add Sub-Concept"
-- **THEN** a new child node is added with a default title "New Concept" in inline edit mode
+#### Scenario: Edit architecture text
+- **WHEN** the user clicks the architecture field in the overview section
+- **THEN** an inline text area expands, showing the full architecture text including any Mermaid blocks
 
-#### Scenario: View mapped files
-- **WHEN** the user selects "View Files" from the context menu
-- **THEN** a popover displays the list of source files mapped to this domain with their roles
+#### Scenario: Add tech stack entry
+- **WHEN** the user clicks "Add" on the tech_stack_roles list
+- **THEN** a new empty row appears with name and role input fields
 
-### Requirement: Outline confirmation actions
-The outline editor SHALL display a bottom action bar with three buttons: "Confirm" (locks the outline as Knowledge Skeleton), "Re-explore" (triggers a new exploration), and "Export JSON" (downloads the outline as a JSON file). "Confirm" SHALL send the edited outline to `POST /api/outline/confirm`. "Re-explore" SHALL send `POST /api/explore` to re-run exploration.
-
-#### Scenario: Confirm outline
-- **WHEN** the user clicks "Confirm"
-- **THEN** the system sends the current tree state as JSON to `POST /api/outline/confirm` and the pipeline continues to generation
-
-#### Scenario: Re-explore
-- **WHEN** the user clicks "Re-explore"
-- **THEN** the system triggers `POST /api/explore` and the outline editor resets to show the new exploration results
-
-#### Scenario: Export JSON
-- **WHEN** the user clicks "Export JSON"
-- **THEN** the browser downloads a `outline.json` file containing the current outline state
-
-### Requirement: Outline editor activation
-The outline editor SHALL replace the Artifact panel (right panel) when the pipeline enters the `waiting` state (after `outline_ready` event). After the user confirms the outline, the Artifact panel SHALL switch back to VitePress preview mode.
-
-#### Scenario: Editor appears after exploration
-- **WHEN** the SSE stream emits `outline_ready` followed by `waiting`
-- **THEN** the Artifact panel switches from empty/loading state to the outline editor view
-
-#### Scenario: Editor dismissed after confirmation
-- **WHEN** the user confirms the outline
-- **THEN** the Artifact panel transitions to VitePress preview mode (iframe)
-
-### Requirement: Outline Zod validation feedback
-Before sending the confirmed outline, the editor SHALL validate the tree state against the outline Zod schema (client-side). If validation fails, the editor SHALL highlight invalid nodes with red borders and display error tooltips.
-
-#### Scenario: Validation error on empty domain
-- **WHEN** the user deletes all files from a domain and clicks "Confirm"
-- **THEN** the domain node shows a red border with tooltip "Domain must have at least one file"
+#### Scenario: Remove key flow entry
+- **WHEN** the user clicks the remove button on a key flow entry
+- **THEN** the entry is removed from the key_flows list and the outline state updates

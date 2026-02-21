@@ -166,22 +166,13 @@ function formatOutlineAsText(outline: Outline): string {
   return lines.join("\n");
 }
 
-// ── MCP Server bootstrap ─────────────────────────────────────────────
+// ── MCP tool registration (shared by stdio + HTTP transports) ────────
 
-export async function startMcpServer(options?: {
-  sidecarPort?: number;
-  projectPath?: string;
-}): Promise<void> {
-  const port = options?.sidecarPort
-    ?? (Number(process.env.DEEPLENS_SIDECAR_PORT) || DEFAULT_SIDECAR_PORT);
-  const projectPath = options?.projectPath ?? process.env.DEEPLENS_PROJECT_PATH ?? "";
-  const sidecarUrl = `http://localhost:${port}`;
-
-  const server = new McpServer({
-    name: "deeplens",
-    version: "0.1.0",
-  });
-
+export function registerMcpTools(
+  server: McpServer,
+  sidecarUrl: string,
+  projectPath: string,
+): void {
   // ── Tool: get_architecture_map ────────────────────────────────────
 
   server.tool(
@@ -345,8 +336,25 @@ export async function startMcpServer(options?: {
       }
     },
   );
+}
 
-  // ── Connect via stdio ─────────────────────────────────────────────
+// ── MCP Server bootstrap (stdio transport) ───────────────────────────
+
+export async function startMcpServer(options?: {
+  sidecarPort?: number;
+  projectPath?: string;
+}): Promise<void> {
+  const port = options?.sidecarPort
+    ?? (Number(process.env.DEEPLENS_SIDECAR_PORT) || DEFAULT_SIDECAR_PORT);
+  const projectPath = options?.projectPath ?? process.env.DEEPLENS_PROJECT_PATH ?? "";
+  const sidecarUrl = `http://localhost:${port}`;
+
+  const server = new McpServer({
+    name: "deeplens",
+    version: "0.1.0",
+  });
+
+  registerMcpTools(server, sidecarUrl, projectPath);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

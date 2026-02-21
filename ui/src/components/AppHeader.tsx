@@ -138,7 +138,7 @@ export function AppHeader({
                         <p className="truncate text-[10px] text-neutral-400">{project.path}</p>
                       </div>
                       {project.status && (
-                        <ProjectStatusDot status={project.status} />
+                        <ProjectStatusBadge status={project.status} />
                       )}
                     </div>
                   </DropdownMenuItem>
@@ -155,16 +155,20 @@ export function AppHeader({
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
           {/* Sidecar status dot */}
-          <span
-            className={`inline-block size-2 rounded-full ${
-              sidecarStatus === "ready"
-                ? "bg-success"
-                : sidecarStatus === "error"
-                  ? "bg-error"
-                  : "animate-pulse bg-neutral-300"
-            }`}
-            title={`Sidecar: ${sidecarStatus}`}
-          />
+          <span className="group relative flex items-center">
+            <span
+              className={`inline-block size-2 rounded-full ${
+                sidecarStatus === "ready"
+                  ? "bg-success"
+                  : sidecarStatus === "error"
+                    ? "bg-error"
+                    : "animate-pulse bg-neutral-300"
+              }`}
+            />
+            <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-neutral-800 px-2 py-1 text-[10px] text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+              Sidecar: {sidecarStatus}
+            </span>
+          </span>
 
           {/* Start Analysis button */}
           <Button
@@ -282,18 +286,25 @@ export function AppHeader({
   );
 }
 
-function ProjectStatusDot({ status }: { status: string }) {
-  const color = status === "ready"
-    ? "bg-success"
-    : status === "analyzing"
-      ? "bg-primary-400"
-      : "bg-error";
+function ProjectStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { style: string; label: string }> = {
+    ready: { style: "bg-success-bg text-success", label: "Analyzed" },
+    analyzing: { style: "bg-primary-50 text-primary-600", label: "Analyzing..." },
+    error: { style: "bg-error-bg text-error", label: "Error" },
+    opened: { style: "bg-neutral-100 text-neutral-500", label: "Not Analyzed" },
+  };
+
+  const { style, label } = config[status] ?? config.opened;
 
   return (
     <span
-      className={cn("inline-block size-2 shrink-0 rounded-full", color)}
-      title={status}
-    />
+      className={cn(
+        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none",
+        style,
+      )}
+    >
+      {label}
+    </span>
   );
 }
 

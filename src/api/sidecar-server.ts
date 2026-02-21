@@ -9,6 +9,10 @@ import { serve } from "@hono/node-server";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { registerMcpTools } from "../mcp/server.js";
+import { loadProjects } from "../projects/registry.js";
 import { applyMiddleware } from "./middleware.js";
 import { createExploreRoute } from "./routes/explore.js";
 import { createGenerateRoute } from "./routes/generate.js";
@@ -227,6 +231,22 @@ export async function startSidecarServer(
   const dbPath = path.join(projectPath, ".deeplens", "deeplens.db");
   let qaApp: Hono | null = null;
   let vectorStore: { close: () => void } | null = null;
+  let qaProjectPath: string | null = null; // track which project qaApp is bound to
+
+  /** Re-initialize Q&A routes if the requested project differs from the current one. */
+  async function ensureQAForProject(reqProjectPath: string): Promise<void> {
+    const reqDbPath = path.join(reqProjectPath, ".deeplens", "deeplens.db");
+    if (qaApp && qaProjectPath && qaProjectPath !== reqProjectPath) {
+      vectorStore?.close();
+      qaApp = null;
+      vectorStore = null;
+      qaProjectPath = null;
+    }
+    if (!qaApp && existsSync(reqDbPath) && config.openrouterApiKey) {
+      qaApp = await initQARoutes(reqDbPath, config, reqProjectPath);
+      qaProjectPath = reqProjectPath;
+    }
+  }
 
   // ── Vectorize route (SSE streaming with progress) ─
   app.post("/api/vectorize", async (c) => {
@@ -266,10 +286,8 @@ export async function startSidecarServer(
           },
         });
 
-        // After vectorization, initialize Q&A routes if not already active
-        if (!qaApp) {
-          qaApp = await initQARoutes(dbFilePath, config, reqProjectPath);
-        }
+        // After vectorization, initialize Q&A routes for this project
+        await ensureQAForProject(reqProjectPath);
 
         await stream.writeSSE({
           event: "done",
@@ -341,12 +359,7 @@ export async function startSidecarServer(
   });
   app.get("/api/status", async (c) => {
     const reqProjectPath = c.req.query("projectPath") || projectPath;
-    const reqDbPath = path.join(reqProjectPath, ".deeplens", "deeplens.db");
-
-    // Lazily initialize Q&A routes if DB exists but qaApp not yet loaded
-    if (!qaApp && existsSync(reqDbPath) && config.openrouterApiKey) {
-      qaApp = await initQARoutes(reqDbPath, config, reqProjectPath);
-    }
+    await ensureQAForProject(reqProjectPath);
 
     if (!qaApp) {
       return c.json({ indexed: false, totalChunks: 0, totalFiles: 0 });
@@ -357,6 +370,7 @@ export async function startSidecarServer(
   // Initialize Q&A immediately if DB already exists
   if (existsSync(dbPath) && config.openrouterApiKey) {
     qaApp = await initQARoutes(dbPath, config, projectPath);
+    qaProjectPath = projectPath;
   }
 
   // ── Test Connection ───────────────────────────────
@@ -507,6 +521,32 @@ export async function startSidecarServer(
       process.exit(0);
     }, 500);
     return c.json({ status: "shutting_down" });
+  });
+
+  // ── Streamable HTTP MCP (stateless — new server+transport per request)
+  const sidecarUrl = `http://localhost:${port}`;
+  app.all("/mcp", async (c) => {
+    // Resolve project path: ?project=name looks up registry, ?project_path= uses as-is
+    let mcpProjectPath = projectPath;
+    const projectName = c.req.query("project");
+    const explicitPath = c.req.query("project_path");
+    if (projectName) {
+      const projects = await loadProjects();
+      const entry = projects.find(
+        (p) => p.name === projectName || p.path.endsWith(`/${projectName}`),
+      );
+      if (entry) mcpProjectPath = entry.path;
+    } else if (explicitPath) {
+      mcpProjectPath = explicitPath;
+    }
+
+    const mcpServer = new McpServer({ name: "deeplens", version: "0.1.0" });
+    registerMcpTools(mcpServer, sidecarUrl, mcpProjectPath);
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
+    await mcpServer.connect(transport);
+    return transport.handleRequest(c.req.raw);
   });
 
   const server = serve({ fetch: app.fetch, port });

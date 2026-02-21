@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import mermaid from "mermaid";
@@ -121,6 +121,14 @@ export function ArtifactPanel({
   children,
 }: ArtifactPanelProps) {
   const components = useMemo(() => ({ code: CodeBlock }), []);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Reset scroll position when content changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [content]);
 
   return (
     <div className="flex h-full flex-col bg-white">
@@ -140,7 +148,7 @@ export function ArtifactPanel({
 
         {/* Priority 2: markdown content */}
         {!children && content && (
-          <div className="size-full overflow-y-auto px-6 py-4">
+          <div ref={scrollRef} className="size-full overflow-y-auto px-6 py-4">
             <article className="prose prose-neutral prose-sm max-w-none">
               <Markdown remarkPlugins={remarkPlugins} components={components}>
                 {content}

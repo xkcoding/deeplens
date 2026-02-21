@@ -247,21 +247,23 @@ export function ProjectSelectionPage({
 }
 
 function StatusBadge({ status }: { status: NonNullable<ProjectInfo["status"]> }) {
-  const styles: Record<string, string> = {
-    ready: "bg-success-bg text-success",
-    analyzing: "bg-primary-50 text-primary-600",
-    error: "bg-error-bg text-error",
-    opened: "bg-neutral-100 text-neutral-500",
+  const config: Record<string, { style: string; label: string }> = {
+    ready: { style: "bg-success-bg text-success", label: "Analyzed" },
+    analyzing: { style: "bg-primary-50 text-primary-600", label: "Analyzing..." },
+    error: { style: "bg-error-bg text-error", label: "Error" },
+    opened: { style: "bg-neutral-100 text-neutral-500", label: "Not Analyzed" },
   };
+
+  const { style, label } = config[status] ?? config.opened;
 
   return (
     <span
       className={cn(
         "rounded-full px-2 py-0.5 text-[10px] font-medium",
-        styles[status],
+        style,
       )}
     >
-      {status}
+      {label}
     </span>
   );
 }

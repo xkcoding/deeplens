@@ -524,6 +524,13 @@ function App() {
         <ProjectSelectionPage
           sidecarPort={sidecar.port}
           onProjectSelect={(projectDir) => {
+            clearEvents();
+            setOutlineData(null);
+            setSelectedNavId(undefined);
+            setIndexReady(false);
+            setVectorizeStatus("idle");
+            setVectorizeProgress(null);
+            setPreviewLoading(false);
             localStorage.setItem("deeplens-current-project", projectDir);
             setCurrentProject(projectDir);
           }}

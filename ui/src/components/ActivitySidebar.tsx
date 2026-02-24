@@ -122,7 +122,7 @@ function getPhaseSteps(
   isWaiting: boolean,
   generateProgress: { phase: string; current: number; total: number } | null,
 ): Array<{ label: string; status: StepStatus; detail?: string }> {
-  // Phase index: explore=0, outline_review=1, generate=2, overview=3, summary=4
+  // Phase index: explore=0, outline_review=1, generate=2, overview=3, summary=4, translate=5
   let currentPhaseIdx = -1;
   if (phase === "explore" || (!phase && isRunning)) {
     currentPhaseIdx = 0;
@@ -134,6 +134,8 @@ function getPhaseSteps(
     currentPhaseIdx = 3;
   } else if (phase === "summary") {
     currentPhaseIdx = 4;
+  } else if (phase === "translate") {
+    currentPhaseIdx = 5;
   }
 
   // If not running and no phase, everything is pending
@@ -144,6 +146,7 @@ function getPhaseSteps(
       { label: "Generate", status: "pending" },
       { label: "Overview", status: "pending" },
       { label: "Summary", status: "pending" },
+      { label: "Translate", status: "pending" },
     ];
   }
 
@@ -187,6 +190,17 @@ function getPhaseSteps(
     steps.push({ label: "Summary", status: "completed" });
   } else {
     steps.push({ label: "Summary", ...stepStatus(4) });
+  }
+
+  // Translate
+  if (!isRunning && currentPhaseIdx >= 5) {
+    steps.push({ label: "Translate", status: "completed" });
+  } else {
+    let detail: string | undefined;
+    if (currentPhaseIdx === 5 && generateProgress?.phase === "translate") {
+      detail = `${generateProgress.current}/${generateProgress.total}`;
+    }
+    steps.push({ label: "Translate", ...stepStatus(5, detail) });
   }
 
   return steps;

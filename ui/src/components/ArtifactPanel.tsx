@@ -14,6 +14,8 @@ mermaid.initialize({
 interface ArtifactPanelProps {
   content?: string;
   title?: string;
+  locale?: "en" | "zh";
+  onLocaleChange?: (locale: "en" | "zh") => void;
   children?: React.ReactNode;
 }
 
@@ -118,6 +120,8 @@ const remarkPlugins = [remarkGfm];
 export function ArtifactPanel({
   content,
   title,
+  locale,
+  onLocaleChange,
   children,
 }: ArtifactPanelProps) {
   const components = useMemo(() => ({ code: CodeBlock }), []);
@@ -133,10 +137,35 @@ export function ArtifactPanel({
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
-      <div className="flex h-10 shrink-0 items-center border-b border-neutral-200 px-4">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-neutral-200 px-4">
         <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
           {title || "Preview"}
         </span>
+        {/* Language toggle */}
+        {locale && onLocaleChange && (
+          <div className="flex items-center rounded-md border border-neutral-200 text-[11px]">
+            <button
+              onClick={() => onLocaleChange("en")}
+              className={`px-2 py-0.5 rounded-l-md transition-colors ${
+                locale === "en"
+                  ? "bg-primary-50 text-primary-700 font-medium"
+                  : "text-neutral-500 hover:text-neutral-700"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => onLocaleChange("zh")}
+              className={`px-2 py-0.5 rounded-r-md transition-colors ${
+                locale === "zh"
+                  ? "bg-primary-50 text-primary-700 font-medium"
+                  : "text-neutral-500 hover:text-neutral-700"
+              }`}
+            >
+              中文
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Content */}

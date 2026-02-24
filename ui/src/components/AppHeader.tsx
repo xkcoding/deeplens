@@ -190,9 +190,11 @@ export function AppHeader({
                   ? "Generating Overview..."
                   : progress?.phase === "summary"
                     ? "Generating Summary..."
-                    : progress?.phase === "outline_review"
-                      ? "Review Outline..."
-                      : "Exploring..."
+                    : progress?.phase === "translate"
+                      ? "Translating..."
+                      : progress?.phase === "outline_review"
+                        ? "Review Outline..."
+                        : "Exploring..."
               : "Analyze"}
           </Button>
 

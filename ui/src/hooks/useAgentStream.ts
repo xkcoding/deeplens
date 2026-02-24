@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { capture } from "@/lib/posthog";
 import type { AgentEvent, NavItem, Outline } from "@/types/events";
 
 interface UseAgentStreamOptions {
@@ -125,10 +126,10 @@ function updateNavItemStatus(
 
 /**
  * Find which domain a file path belongs to.
- * Paths look like: domains/<domain-id>/index.md or domains/<domain-id>/<component>.md
+ * Paths look like: en/domains/<domain-id>/index.md or zh/domains/<domain-id>/<component>.md
  */
 function domainIdFromPath(path: string): string | null {
-  const match = path.match(/^domains\/([^/]+)\//);
+  const match = path.match(/^(?:en|zh)\/domains\/([^/]+)\//);
   return match ? match[1] : null;
 }
 
@@ -252,58 +253,65 @@ function applyEvent(prev: AgentStreamState, event: AgentEvent): AgentStreamState
       nextDocuments.set(event.path, event.content);
     }
 
-    const dId = domainIdFromPath(event.path);
-    if (dId) {
-      const spokeMatch = event.path.match(/^domains\/[^/]+\/(.+)\.md$/);
-      const isHub = spokeMatch && spokeMatch[1] === "index";
+    // Only update navItem status for English (en/) docs.
+    // Chinese (zh/) docs are stored in the documents map but don't affect navigation state —
+    // otherwise the translate phase would regress completed domains back to "generating".
+    const isEnglishDoc = event.path.startsWith("en/");
 
-      if (spokeMatch && !isHub) {
-        // Spoke file: dynamically add/update child in the domain
-        const slug = spokeMatch[1];
-        const childId = `${dId}/${slug}`;
-        const source = nextNavItems === prev.navItems ? prev.navItems : nextNavItems;
-        nextNavItems = source.map((item) => {
-          if (item.id !== dId) return item;
-          const children = [...(item.children ?? [])];
-          const existingIdx = children.findIndex((c) => c.id === childId);
-          if (existingIdx >= 0) {
-            children[existingIdx] = { ...children[existingIdx], status: "generating" };
-          } else {
-            children.push({
-              id: childId,
-              title: fileNameToTitle(slug),
-              type: "concept" as const,
-              status: "generating" as const,
-            });
+    if (isEnglishDoc) {
+      const dId = domainIdFromPath(event.path);
+      if (dId) {
+        const spokeMatch = event.path.match(/^en\/domains\/[^/]+\/(.+)\.md$/);
+        const isHub = spokeMatch && spokeMatch[1] === "index";
+
+        if (spokeMatch && !isHub) {
+          // Spoke file: dynamically add/update child in the domain
+          const slug = spokeMatch[1];
+          const childId = `${dId}/${slug}`;
+          const source = nextNavItems === prev.navItems ? prev.navItems : nextNavItems;
+          nextNavItems = source.map((item) => {
+            if (item.id !== dId) return item;
+            const children = [...(item.children ?? [])];
+            const existingIdx = children.findIndex((c) => c.id === childId);
+            if (existingIdx >= 0) {
+              children[existingIdx] = { ...children[existingIdx], status: "generating" };
+            } else {
+              children.push({
+                id: childId,
+                title: fileNameToTitle(slug),
+                type: "concept" as const,
+                status: "generating" as const,
+              });
+            }
+            return {
+              ...item,
+              status: item.status === "completed" ? item.status : "generating",
+              children,
+            };
+          });
+        } else {
+          // Hub (index.md): mark domain as generating
+          const source = nextNavItems === prev.navItems ? prev.navItems : nextNavItems;
+          const existing = source.find((n) => n.id === dId);
+          if (existing && existing.status !== "completed") {
+            nextNavItems = updateNavItemStatus(source, dId, "generating");
           }
-          return {
-            ...item,
-            status: item.status === "completed" ? item.status : "generating",
-            children,
-          };
-        });
-      } else {
-        // Hub (index.md): mark domain as generating
-        const source = nextNavItems === prev.navItems ? prev.navItems : nextNavItems;
-        const existing = source.find((n) => n.id === dId);
-        if (existing && existing.status !== "completed") {
-          nextNavItems = updateNavItemStatus(source, dId, "generating");
         }
+      } else if (event.path === "en/index.md") {
+        // Top-level index.md: mark Overview as completed (single-file, one write = done)
+        nextNavItems = updateNavItemStatus(
+          nextNavItems === prev.navItems ? prev.navItems : nextNavItems,
+          OVERVIEW_NAV_ID,
+          "completed",
+        );
+      } else if (event.path === "en/summary.md") {
+        // Top-level summary.md: mark Summary as completed
+        nextNavItems = updateNavItemStatus(
+          nextNavItems === prev.navItems ? prev.navItems : nextNavItems,
+          SUMMARY_NAV_ID,
+          "completed",
+        );
       }
-    } else if (event.path === "index.md") {
-      // Top-level index.md: mark Overview as completed (single-file, one write = done)
-      nextNavItems = updateNavItemStatus(
-        nextNavItems === prev.navItems ? prev.navItems : nextNavItems,
-        OVERVIEW_NAV_ID,
-        "completed",
-      );
-    } else if (event.path === "summary.md") {
-      // Top-level summary.md: mark Summary as completed
-      nextNavItems = updateNavItemStatus(
-        nextNavItems === prev.navItems ? prev.navItems : nextNavItems,
-        SUMMARY_NAV_ID,
-        "completed",
-      );
     }
   }
 
@@ -321,8 +329,8 @@ function applyEvent(prev: AgentStreamState, event: AgentEvent): AgentStreamState
     nextNavItems = outlineToNavItems(event.outline);
   }
 
-  // Handle progress with generate/overview/summary phase: update generateProgress
-  if (event.type === "progress" && (event.phase === "generate" || event.phase === "overview" || event.phase === "summary")) {
+  // Handle progress with generate/overview/summary/translate phase: update generateProgress
+  if (event.type === "progress" && (event.phase === "generate" || event.phase === "overview" || event.phase === "summary" || event.phase === "translate")) {
     nextGenerateProgress = {
       phase: event.phase,
       current: event.current,
@@ -481,8 +489,10 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   );
 
   const startAnalyze = useCallback(
-    (projectPath: string) =>
-      consumeStream("/api/analyze", { projectPath }),
+    (projectPath: string) => {
+      capture("project_analyze", { language: "unknown", file_count: 0 });
+      return consumeStream("/api/analyze", { projectPath });
+    },
     [consumeStream],
   );
 
@@ -500,6 +510,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
   const confirmOutline = useCallback(
     async (projectPath: string, outline: Outline) => {
+      capture("project_generate", { domain_count: outline?.knowledge_graph?.length ?? 0 });
       try {
         const response = await fetch(`${options.baseUrl}/api/outline/confirm`, {
           method: "POST",
@@ -536,10 +547,10 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     (outline: Outline, docs: Record<string, string>) => {
       const docPaths = Object.keys(docs);
       const navItems = outlineToNavItems(outline).map((item) => {
-        // Build children from actual spoke files for this domain
+        // Build children from actual spoke files for this domain (en/ locale only)
         const children: NavItem[] = [];
         for (const p of docPaths) {
-          const match = p.match(/^domains\/([^/]+)\/(.+)\.md$/);
+          const match = p.match(/^en\/domains\/([^/]+)\/(.+)\.md$/);
           if (match && match[1] === item.id && match[2] !== "index") {
             children.push({
               id: `${item.id}/${match[2]}`,

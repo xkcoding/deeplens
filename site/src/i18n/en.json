@@ -1,0 +1,199 @@
+{
+  "meta": {
+    "title": "DeepLens — AI-Powered Code Documentation",
+    "description": "DeepLens deeply explores your codebase with AI agents and generates beautiful, comprehensive documentation. Run locally, keep your code private."
+  },
+  "header": {
+    "features": "Features",
+    "howItWorks": "How It Works",
+    "comparison": "Compare",
+    "faq": "FAQ",
+    "github": "GitHub",
+    "toggleTheme": "Toggle theme",
+    "langLabel": "中文"
+  },
+  "hero": {
+    "badge": "Open Source & Privacy-First",
+    "title": "Understand Any Codebase",
+    "titleHighlight": "in Minutes",
+    "namingStory": "Deep analysis through an AI lens — see your code with clarity.",
+    "description": "AI agents explore your code, build knowledge graphs, and generate beautiful docs — all running locally on your machine.",
+    "ctaPrimary": "Get Started",
+    "ctaSecondary": "View on GitHub",
+    "installTabs": {
+      "gui": "Desktop App",
+      "cli": "CLI"
+    },
+    "guiDownload": "Download for macOS",
+    "guiPlatforms": "Also available for Windows & Linux",
+    "guiReleasesLink": "All releases",
+    "guiBrewCmd": "brew install xkcoding/tap/deeplens",
+    "guiBrewLabel": "Or install via Homebrew",
+    "cliCommands": [
+      "npm install -g deeplens"
+    ],
+    "orLabel": "or"
+  },
+  "showcase": {
+    "title": "See It in Action",
+    "subtitle": "Four phases, from raw code to rich documentation",
+    "tabs": [
+      {
+        "label": "Explore",
+        "title": "AI Agent Explores Your Code",
+        "description": "The explorer agent navigates your codebase like an experienced developer — reading files, tracing dependencies, and mapping the architecture into a structured knowledge graph.",
+        "highlights": ["Custom MCP tools for file access", "Intelligent file selection", "Knowledge domain extraction"]
+      },
+      {
+        "label": "Review",
+        "title": "Human-in-the-Loop Outline Review",
+        "description": "Review the generated outline before documentation begins. Add, remove, or reorder knowledge domains. Drag-and-drop editing ensures the documentation matches your vision.",
+        "highlights": ["Interactive outline editor", "Drag-and-drop reordering", "Domain & sub-concept editing"]
+      },
+      {
+        "label": "Generate",
+        "title": "Deep Writer Generates Docs",
+        "description": "The writing agent creates rich, contextual documentation for each knowledge domain — with code examples, architecture diagrams, and cross-references.",
+        "highlights": ["Domain-by-domain generation", "Bilingual EN/ZH output", "Mermaid diagram support"]
+      },
+      {
+        "label": "Search",
+        "title": "Ask Your Codebase Anything",
+        "description": "Query your documented codebase with natural language. Fast keyword search for quick lookups, or deep semantic search powered by vector embeddings.",
+        "highlights": ["Fast keyword search", "Deep semantic search", "Source-referenced answers"]
+      }
+    ]
+  },
+  "features": {
+    "title": "Why DeepLens?",
+    "subtitle": "Built different from traditional documentation tools",
+    "items": [
+      {
+        "icon": "Compass",
+        "title": "Active Exploration",
+        "description": "AI agent proactively explores your codebase using custom MCP tools — not just parsing, actually understanding."
+      },
+      {
+        "icon": "Network",
+        "title": "Knowledge Graphs",
+        "description": "Intelligent outline generation groups code into meaningful knowledge domains, not just file trees."
+      },
+      {
+        "icon": "Search",
+        "title": "Dual-Layer Search",
+        "description": "Fast keyword search for quick lookups, plus deep semantic search powered by vector embeddings."
+      },
+      {
+        "icon": "Plug",
+        "title": "MCP Integration",
+        "description": "Works with any MCP-compatible client: Claude Code, Cursor, VS Code. Your docs become an AI knowledge base."
+      },
+      {
+        "icon": "GitBranch",
+        "title": "Incremental Updates",
+        "description": "Only re-analyze changed files. Git-aware diffing keeps documentation fresh without full re-runs."
+      },
+      {
+        "icon": "Languages",
+        "title": "Bilingual Docs",
+        "description": "Generate documentation in both English and Chinese simultaneously. Translation agent handles localization."
+      }
+    ]
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "subtitle": "From zero to documentation in four simple steps",
+    "steps": [
+      {
+        "step": "1",
+        "title": "Install",
+        "description": "Download the desktop app, or install via Homebrew / npm.",
+        "code": "brew install xkcoding/tap/deeplens"
+      },
+      {
+        "step": "2",
+        "title": "Select",
+        "description": "Open the DeepLens app and select your project directory.",
+        "code": null
+      },
+      {
+        "step": "3",
+        "title": "Explore",
+        "description": "AI agent deeply analyzes your code, building a knowledge graph of your architecture.",
+        "code": null
+      },
+      {
+        "step": "4",
+        "title": "Read",
+        "description": "Browse beautiful VitePress documentation with search, diagrams, and cross-references.",
+        "code": null
+      }
+    ]
+  },
+  "comparison": {
+    "title": "DeepLens vs DeepWiki",
+    "subtitle": "Both generate documentation from code — but with different approaches",
+    "headers": ["Feature", "DeepLens", "DeepWiki"],
+    "rows": [
+      ["Where it runs", "100% local — code never leaves your machine", "Cloud service by Cognition AI (Devin)"],
+      ["Code privacy", "Complete privacy, your API key only", "Code sent to Cognition's servers for analysis"],
+      ["Analysis approach", "Agent-based exploration with custom MCP tools", "Devin AI + LLM analysis"],
+      ["Outline control", "Human-in-the-loop: edit, reorder, add/remove domains", "Fully automatic, no manual editing"],
+      ["Output format", "VitePress static site + MCP Server", "Web-based interactive wiki"],
+      ["Search", "Fast keyword + deep semantic (vector) search", "Conversational RAG Q&A"],
+      ["Incremental updates", "Git-aware, only re-analyze changed files", "Full regeneration"],
+      ["Cost", "Free & open source (bring your own API key)", "Free for public repos, paid for private"],
+      ["Offline support", "Works offline (needs API only for analysis)", "Requires internet connection"]
+    ]
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "items": [
+      {
+        "question": "What is DeepLens?",
+        "answer": "DeepLens is an open-source AI-powered code documentation tool. It uses AI agents to deeply explore your codebase and generate comprehensive, structured documentation — all running locally on your machine."
+      },
+      {
+        "question": "How is DeepLens different from DeepWiki?",
+        "answer": "DeepWiki (deepwiki.com) is a cloud service by Cognition AI — your code is sent to their servers for analysis. DeepLens runs entirely on your machine, keeping code private. DeepLens also offers human-in-the-loop outline editing, VitePress static site output, and MCP server integration that DeepWiki doesn't provide."
+      },
+      {
+        "question": "Is DeepLens free and open source?",
+        "answer": "Yes! DeepLens is fully open source under the MIT license. You'll need an API key for the AI model (Claude or OpenRouter), but the tool itself is free."
+      },
+      {
+        "question": "What programming languages are supported?",
+        "answer": "DeepLens is language-agnostic — the AI agent reads and understands any programming language. It works best with TypeScript, JavaScript, Python, Go, Rust, Java, and other popular languages."
+      },
+      {
+        "question": "How does the AI agent work?",
+        "answer": "DeepLens uses Claude's agent capabilities with custom MCP tools. The explorer agent reads files, lists directories, and searches patterns to build a knowledge graph. The generator agent then writes documentation based on this graph."
+      },
+      {
+        "question": "Can I customize the generated documentation?",
+        "answer": "Absolutely. After the explorer agent produces an outline, you can review and edit it — add, remove, or reorder knowledge domains using a drag-and-drop editor before generation begins."
+      },
+      {
+        "question": "Does it work offline?",
+        "answer": "DeepLens runs locally and stores all data on your machine. However, it requires an API connection to the AI model (Claude API or OpenRouter) for the analysis and generation steps."
+      }
+    ]
+  },
+  "cta": {
+    "title": "Ready to Understand Your Code?",
+    "description": "Start generating beautiful documentation for your codebase in minutes. Open source, privacy-first, and powered by AI.",
+    "primaryButton": "Download on GitHub",
+    "installLabel": "Or install via terminal",
+    "installCmd": "brew install xkcoding/tap/deeplens"
+  },
+  "footer": {
+    "copyright": "© 2025 DeepLens. MIT License.",
+    "madeWith": "Made with",
+    "builtWith": "Built with Astro & React",
+    "links": {
+      "github": "GitHub",
+      "releases": "Releases",
+      "issues": "Issues"
+    }
+  }
+}

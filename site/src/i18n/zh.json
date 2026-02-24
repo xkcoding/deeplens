@@ -1,0 +1,199 @@
+{
+  "meta": {
+    "title": "DeepLens — AI 驱动的代码文档生成工具",
+    "description": "DeepLens 使用 AI Agent 深度探索代码库，生成精美、全面的技术文档。本地运行，代码隐私无忧。"
+  },
+  "header": {
+    "features": "功能特性",
+    "howItWorks": "工作原理",
+    "comparison": "对比",
+    "faq": "常见问题",
+    "github": "GitHub",
+    "toggleTheme": "切换主题",
+    "langLabel": "EN"
+  },
+  "hero": {
+    "badge": "开源 & 隐私优先",
+    "title": "理解任意代码库",
+    "titleHighlight": "只需几分钟",
+    "namingStory": "Deep 深度分析 × Lens 聚焦透视 —— 用 AI 的镜头看清每一行代码。",
+    "description": "DeepLens 使用 AI Agent 深度探索代码库，生成结构化知识图谱，输出精美技术文档 —— 全程本地运行，代码不出机器。",
+    "ctaPrimary": "立即开始",
+    "ctaSecondary": "查看源码",
+    "installTabs": {
+      "gui": "桌面应用",
+      "cli": "命令行"
+    },
+    "guiDownload": "下载 macOS 版",
+    "guiPlatforms": "同时支持 Windows 和 Linux",
+    "guiReleasesLink": "所有版本",
+    "guiBrewCmd": "brew install xkcoding/tap/deeplens",
+    "guiBrewLabel": "或通过 Homebrew 安装",
+    "cliCommands": [
+      "npm install -g deeplens"
+    ],
+    "orLabel": "或"
+  },
+  "showcase": {
+    "title": "功能演示",
+    "subtitle": "从源码到文档，四步完成",
+    "tabs": [
+      {
+        "label": "探索",
+        "title": "AI Agent 深度探索代码",
+        "description": "探索 Agent 像资深开发者一样浏览代码库 —— 读取文件、追踪依赖、梳理架构，最终构建结构化知识图谱。",
+        "highlights": ["自定义 MCP 工具访问文件", "智能文件筛选", "知识领域自动提取"]
+      },
+      {
+        "label": "审查",
+        "title": "人机协作大纲审查",
+        "description": "在文档生成前审查大纲。添加、删除或重排知识域。拖拽编辑确保文档结构符合你的期望。",
+        "highlights": ["交互式大纲编辑器", "拖拽排序", "领域与子概念编辑"]
+      },
+      {
+        "label": "生成",
+        "title": "Deep Writer 生成文档",
+        "description": "写作 Agent 为每个知识域创建丰富的上下文文档 —— 包含代码示例、架构图和交叉引用。",
+        "highlights": ["按领域逐个生成", "中英文双语输出", "Mermaid 图表支持"]
+      },
+      {
+        "label": "搜索",
+        "title": "向代码库提问",
+        "description": "用自然语言查询文档化的代码库。快速关键词搜索用于即时查找，深度语义搜索基于向量嵌入。",
+        "highlights": ["快速关键词搜索", "深度语义搜索", "带源码引用的回答"]
+      }
+    ]
+  },
+  "features": {
+    "title": "为什么选择 DeepLens？",
+    "subtitle": "与传统文档工具截然不同的设计",
+    "items": [
+      {
+        "icon": "Compass",
+        "title": "主动探索",
+        "description": "AI Agent 通过自定义 MCP 工具主动探索代码库 —— 不只是解析，而是真正理解。"
+      },
+      {
+        "icon": "Network",
+        "title": "知识图谱",
+        "description": "智能大纲生成将代码组织为有意义的知识域，而非简单的文件树。"
+      },
+      {
+        "icon": "Search",
+        "title": "双层搜索",
+        "description": "快速关键词搜索用于即时查找，深度语义搜索基于向量嵌入。"
+      },
+      {
+        "icon": "Plug",
+        "title": "MCP 集成",
+        "description": "兼容任何 MCP 客户端：Claude Code、Cursor、VS Code。文档即 AI 知识库。"
+      },
+      {
+        "icon": "GitBranch",
+        "title": "增量更新",
+        "description": "仅重新分析变更文件。Git 感知的差异比对让文档保持最新，无需全量重跑。"
+      },
+      {
+        "icon": "Languages",
+        "title": "双语文档",
+        "description": "同时生成中英文文档。翻译 Agent 自动处理本地化。"
+      }
+    ]
+  },
+  "howItWorks": {
+    "title": "工作原理",
+    "subtitle": "四步，从零到文档",
+    "steps": [
+      {
+        "step": "1",
+        "title": "安装",
+        "description": "下载桌面应用，或通过 Homebrew / npm 安装。",
+        "code": "brew install xkcoding/tap/deeplens"
+      },
+      {
+        "step": "2",
+        "title": "选择",
+        "description": "打开 DeepLens 应用，选择你的项目目录。",
+        "code": null
+      },
+      {
+        "step": "3",
+        "title": "探索",
+        "description": "AI Agent 深度分析代码，构建架构知识图谱。",
+        "code": null
+      },
+      {
+        "step": "4",
+        "title": "阅读",
+        "description": "浏览精美的 VitePress 文档，支持搜索、图表和交叉引用。",
+        "code": null
+      }
+    ]
+  },
+  "comparison": {
+    "title": "DeepLens vs DeepWiki",
+    "subtitle": "都能从代码生成文档 —— 但方式截然不同",
+    "headers": ["特性", "DeepLens", "DeepWiki"],
+    "rows": [
+      ["运行位置", "100% 本地 — 代码不离开你的机器", "云端服务，由 Cognition AI (Devin) 提供"],
+      ["代码隐私", "完全隐私，仅使用你自己的 API Key", "代码发送至 Cognition 服务器进行分析"],
+      ["分析方式", "基于 Agent 的探索 + 自定义 MCP 工具", "Devin AI + LLM 分析"],
+      ["大纲控制", "人机协作：编辑、重排、增删知识域", "全自动生成，不支持手动编辑"],
+      ["输出格式", "VitePress 静态站点 + MCP Server", "Web 交互式 Wiki"],
+      ["搜索能力", "快速关键词 + 深度语义（向量）搜索", "对话式 RAG 问答"],
+      ["增量更新", "Git 感知，仅重新分析变更文件", "全量重新生成"],
+      ["费用", "免费开源（自备 API Key）", "公开仓库免费，私有仓库付费"],
+      ["离线支持", "支持离线（仅分析时需要 API）", "需要网络连接"]
+    ]
+  },
+  "faq": {
+    "title": "常见问题",
+    "items": [
+      {
+        "question": "DeepLens 是什么？",
+        "answer": "DeepLens 是一个开源的 AI 驱动代码文档工具。它使用 AI Agent 深度探索代码库，生成全面的结构化文档 —— 全程本地运行。"
+      },
+      {
+        "question": "DeepLens 和 DeepWiki 有什么区别？",
+        "answer": "DeepWiki (deepwiki.com) 是 Cognition AI 的云端服务 — 代码会发送至其服务器进行分析。DeepLens 完全在本地运行，代码不离开你的机器。此外，DeepLens 提供人机协作大纲编辑、VitePress 静态站点输出和 MCP Server 集成，这些是 DeepWiki 没有的。"
+      },
+      {
+        "question": "DeepLens 是免费开源的吗？",
+        "answer": "是的！DeepLens 基于 MIT 协议完全开源。你需要一个 AI 模型的 API Key（Claude 或 OpenRouter），但工具本身完全免费。"
+      },
+      {
+        "question": "支持哪些编程语言？",
+        "answer": "DeepLens 与语言无关 — AI Agent 能阅读和理解任何编程语言。对 TypeScript、JavaScript、Python、Go、Rust、Java 等主流语言支持最佳。"
+      },
+      {
+        "question": "AI Agent 是如何工作的？",
+        "answer": "DeepLens 使用 Claude 的 Agent 能力配合自定义 MCP 工具。探索 Agent 读取文件、列出目录、搜索模式来构建知识图谱。生成 Agent 根据图谱编写文档。"
+      },
+      {
+        "question": "可以自定义生成的文档吗？",
+        "answer": "当然可以。探索 Agent 生成大纲后，你可以审查和编辑 —— 添加、删除或重排知识域，通过拖拽编辑器调整后再开始生成。"
+      },
+      {
+        "question": "可以离线使用吗？",
+        "answer": "DeepLens 在本地运行，所有数据存储在你的机器上。但分析和生成步骤需要 AI 模型的 API 连接（Claude API 或 OpenRouter）。"
+      }
+    ]
+  },
+  "cta": {
+    "title": "准备好理解你的代码了吗？",
+    "description": "几分钟内为代码库生成精美文档。开源、隐私优先、AI 驱动。",
+    "primaryButton": "在 GitHub 下载",
+    "installLabel": "或通过终端安装",
+    "installCmd": "brew install xkcoding/tap/deeplens"
+  },
+  "footer": {
+    "copyright": "© 2025 DeepLens. MIT 协议。",
+    "madeWith": "用",
+    "builtWith": "基于 Astro & React 构建",
+    "links": {
+      "github": "GitHub",
+      "releases": "发布版本",
+      "issues": "问题反馈"
+    }
+  }
+}

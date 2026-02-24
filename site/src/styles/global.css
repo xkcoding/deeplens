@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* ─── Dark mode: class-based (toggle via .dark on <html>) ──────────── */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * DeepLens Landing Page Design Tokens
+ * Consistent with desktop app (ui/src/index.css)
+ */
+
+@theme {
+  /* ─── Colors: Primary (Orange) ─────────────────────────── */
+  --color-primary-50: #FFF7ED;
+  --color-primary-100: #FFEDD5;
+  --color-primary-200: #FED7AA;
+  --color-primary-300: #FDBA74;
+  --color-primary-400: #FB923C;
+  --color-primary-500: #F97316;
+  --color-primary-600: #EA580C;
+  --color-primary-700: #C2410C;
+  --color-primary-800: #9A3412;
+  --color-primary-900: #7C2D12;
+  --color-primary: #F97316;
+
+  /* ─── Colors: Secondary (Amber) ────────────────────────── */
+  --color-secondary-50: #FFFBEB;
+  --color-secondary-100: #FEF3C7;
+  --color-secondary-200: #FDE68A;
+  --color-secondary-300: #FCD34D;
+  --color-secondary-400: #FBBF24;
+  --color-secondary-500: #F59E0B;
+  --color-secondary: #F59E0B;
+
+  /* ─── Colors: Neutral (Stone) ──────────────────────────── */
+  --color-neutral-0: #FFFFFF;
+  --color-neutral-50: #FAFAF9;
+  --color-neutral-100: #F5F5F4;
+  --color-neutral-200: #E7E5E4;
+  --color-neutral-300: #D6D3D1;
+  --color-neutral-400: #A8A29E;
+  --color-neutral-500: #78716C;
+  --color-neutral-600: #57534E;
+  --color-neutral-700: #44403C;
+  --color-neutral-800: #292524;
+  --color-neutral-900: #1C1917;
+  --color-neutral-950: #0C0A09;
+
+  /* ─── Typography ───────────────────────────────────────── */
+  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
+
+  /* ─── Box Shadows ──────────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.08), 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-md: 0 4px 6px rgba(28, 25, 23, 0.07), 0 2px 4px rgba(28, 25, 23, 0.04);
+  --shadow-lg: 0 10px 15px rgba(28, 25, 23, 0.08), 0 4px 6px rgba(28, 25, 23, 0.04);
+  --shadow-xl: 0 20px 25px rgba(28, 25, 23, 0.08), 0 8px 10px rgba(28, 25, 23, 0.03);
+  --shadow-glow-primary: 0 0 20px rgba(249, 115, 22, 0.15);
+
+  /* ─── Transitions ──────────────────────────────────────── */
+  --transition-duration-fast: 150ms;
+  --transition-duration-normal: 250ms;
+  --transition-duration-slow: 350ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ─── Layout ───────────────────────────────────────────── */
+  --width-content: 1200px;
+  --height-header: 64px;
+
+  /* ─── Keyframe Animations ──────────────────────────────── */
+  --animate-fade-in: fade-in 500ms ease-out;
+  --animate-slide-up: slide-up 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-in-up: fade-in-up 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ─── Base Layer ──────────────────────────────────────────── */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Dark mode overrides */
+  .dark body {
+    color: #E7E5E4;
+    background-color: #0C0A09;
+  }
+}

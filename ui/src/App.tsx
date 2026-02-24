@@ -12,6 +12,7 @@ import { useSidecar } from "@/hooks/useSidecar";
 import { useAgentStream, OVERVIEW_NAV_ID, SUMMARY_NAV_ID } from "@/hooks/useAgentStream";
 import { useConfig } from "@/hooks/useConfig";
 import { useUpdate } from "@/hooks/useUpdate";
+import { initPostHog, capture } from "@/lib/posthog";
 import type { Outline } from "@/types/events";
 import type { OutlineData } from "@/components/outline/OutlineValidation";
 
@@ -44,6 +45,7 @@ function App() {
   const [vectorizeProgress, setVectorizeProgress] = useState<{ current: number; total: number } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [exportRunning, setExportRunning] = useState(false);
+  const [previewLocale, setPreviewLocale] = useState<"en" | "zh">("en");
 
   // UI state cache for project switching (Task 10.6)
   interface UIState {
@@ -59,6 +61,15 @@ function App() {
   const baseUrl = sidecar.port ? `http://127.0.0.1:${sidecar.port}` : "";
   const { state: agentState, startAnalyze, confirmOutline, clearEvents, replaySession, loadFromDisk } = useAgentStream({ baseUrl });
   const { state: updateState, startUpdate } = useUpdate({ baseUrl });
+
+  // PostHog initialization
+  useEffect(() => {
+    initPostHog();
+    capture("app_launch", {
+      version: "0.1.0",
+      os: (navigator as unknown as { userAgentData?: { platform: string } }).userAgentData?.platform ?? navigator.platform,
+    });
+  }, []);
 
   // Show setup wizard if no Claude API key configured
   useEffect(() => {
@@ -156,7 +167,9 @@ function App() {
     && (agentState.events.some((e) => e.type === "done") || agentState.documents.size > 0);
 
   // Derive the content to preview: selected doc > active doc > nothing
+  // Uses previewLocale to resolve paths (en/ or zh/)
   const previewContent = useMemo(() => {
+    const locale = previewLocale;
     const findTitle = (items: typeof agentState.navItems, targetId: string): string | null => {
       for (const item of items) {
         if (item.id === targetId) return item.title;
@@ -169,31 +182,31 @@ function App() {
     };
 
     if (selectedNavId && agentState.documents.size > 0) {
-      // Overview item maps to index.md (top-level, not under domains/)
+      // Overview item maps to {locale}/index.md
       if (selectedNavId === OVERVIEW_NAV_ID) {
-        const overviewContent = agentState.documents.get("index.md");
+        const overviewContent = agentState.documents.get(`${locale}/index.md`);
         if (overviewContent) {
-          return { content: overviewContent, title: "Overview" };
+          return { content: overviewContent, title: locale === "zh" ? "概览" : "Overview" };
         }
       }
 
-      // Summary item maps to summary.md (top-level, not under domains/)
+      // Summary item maps to {locale}/summary.md
       if (selectedNavId === SUMMARY_NAV_ID) {
-        const summaryContent = agentState.documents.get("summary.md");
+        const summaryContent = agentState.documents.get(`${locale}/summary.md`);
         if (summaryContent) {
-          return { content: summaryContent, title: "Summary" };
+          return { content: summaryContent, title: locale === "zh" ? "总结" : "Summary" };
         }
       }
 
       // Compute expected document path from navItem ID:
-      //   Domain (id: "data-access")        → "domains/data-access/index.md"
-      //   Child  (id: "data-access/repo")   → "domains/data-access/repo.md"
+      //   Domain (id: "data-access")        → "{locale}/domains/data-access/index.md"
+      //   Child  (id: "data-access/repo")   → "{locale}/domains/data-access/repo.md"
       let expectedDocPath: string;
       if (selectedNavId.includes("/")) {
         const [domainId, conceptSlug] = selectedNavId.split("/", 2);
-        expectedDocPath = `domains/${domainId}/${conceptSlug}.md`;
+        expectedDocPath = `${locale}/domains/${domainId}/${conceptSlug}.md`;
       } else {
-        expectedDocPath = `domains/${selectedNavId}/index.md`;
+        expectedDocPath = `${locale}/domains/${selectedNavId}/index.md`;
       }
 
       // Direct lookup
@@ -203,29 +216,58 @@ function App() {
         return { content: directContent, title };
       }
 
-      // Fallback: search for any doc in the domain (handles slug mismatches)
+      // Fallback: search for any doc in the domain under current locale
       const domainId = selectedNavId.includes("/")
         ? selectedNavId.split("/")[0]
         : selectedNavId;
       for (const [docPath, content] of agentState.documents) {
-        const domainMatch = docPath.match(/^domains\/([^/]+)\//);
+        const domainMatch = docPath.match(new RegExp(`^${locale}\\/domains\\/([^/]+)\\/`));
         if (domainMatch && domainMatch[1] === domainId) {
           const title = findTitle(agentState.navItems, selectedNavId) ?? domainId;
           return { content, title };
         }
       }
+
+      // If Chinese version not found, fall back to English
+      if (locale === "zh") {
+        let fallbackPath: string;
+        if (selectedNavId === OVERVIEW_NAV_ID) {
+          fallbackPath = "en/index.md";
+        } else if (selectedNavId === SUMMARY_NAV_ID) {
+          fallbackPath = "en/summary.md";
+        } else if (selectedNavId.includes("/")) {
+          const [dId, slug] = selectedNavId.split("/", 2);
+          fallbackPath = `en/domains/${dId}/${slug}.md`;
+        } else {
+          fallbackPath = `en/domains/${selectedNavId}/index.md`;
+        }
+        const fallbackContent = agentState.documents.get(fallbackPath);
+        if (fallbackContent) {
+          const title = findTitle(agentState.navItems, selectedNavId) ?? selectedNavId;
+          return { content: fallbackContent, title: `${title} (EN)` };
+        }
+      }
     }
-    // Fallback: show the most recently written doc
-    if (agentState.activeDocPath && agentState.documents.has(agentState.activeDocPath)) {
-      const pathParts = agentState.activeDocPath.split("/");
-      const title = pathParts.length > 1 ? pathParts[pathParts.length - 2] : pathParts[0];
-      return {
-        content: agentState.documents.get(agentState.activeDocPath)!,
-        title,
-      };
+    // Fallback: show the most recently written doc (locale-aware)
+    if (agentState.activeDocPath) {
+      // Try swapping the locale prefix on activeDocPath to match current previewLocale
+      let targetPath = agentState.activeDocPath;
+      if (locale === "zh" && targetPath.startsWith("en/")) {
+        targetPath = "zh/" + targetPath.slice(3);
+      } else if (locale === "en" && targetPath.startsWith("zh/")) {
+        targetPath = "en/" + targetPath.slice(3);
+      }
+
+      const content = agentState.documents.get(targetPath)
+        ?? agentState.documents.get(agentState.activeDocPath);
+      if (content) {
+        const pathParts = targetPath.split("/");
+        const title = pathParts.length > 1 ? pathParts[pathParts.length - 2] : pathParts[0];
+        return { content, title };
+      }
     }
     return null;
-  }, [selectedNavId, agentState.documents, agentState.activeDocPath, agentState.navItems]);
+  }, [selectedNavId, previewLocale, agentState.documents, agentState.activeDocPath, agentState.navItems]);
 
   // Derive progress info for header
   const progressInfo = useMemo(() => {
@@ -301,6 +343,7 @@ function App() {
 
   const handleStartAnalyze = useCallback(() => {
     if (!currentProject || !baseUrl) return;
+    capture("button_click", { name: "analyze", page: "main" });
     clearEvents();
     setOutlineData(null);
     setSelectedNavId(undefined);
@@ -309,6 +352,7 @@ function App() {
 
   const handlePreview = useCallback(async () => {
     if (!baseUrl || !currentProject) return;
+    capture("button_click", { name: "preview", page: "main" });
     setPreviewLoading(true);
     try {
       const res = await fetch(`${baseUrl}/api/preview`, {
@@ -332,6 +376,7 @@ function App() {
 
   const handleVectorize = useCallback(async () => {
     if (!baseUrl || !currentProject) return;
+    capture("button_click", { name: "vectorize", page: "main" });
     setVectorizeStatus("running");
     setVectorizeProgress(null);
     try {
@@ -396,11 +441,13 @@ function App() {
 
   const handleUpdate = useCallback(() => {
     if (!currentProject) return;
+    capture("button_click", { name: "update", page: "main" });
     startUpdate(currentProject);
   }, [currentProject, startUpdate]);
 
   const handleExport = useCallback(async () => {
     if (!baseUrl || !currentProject) return;
+    capture("button_click", { name: "export", page: "main" });
     setExportRunning(true);
     try {
       // Try Tauri directory picker first
@@ -454,6 +501,7 @@ function App() {
   // Project switch handler (Task 10.6)
   const handleProjectSwitch = useCallback((targetPath: string) => {
     if (targetPath === currentProject) return;
+    capture("project_switch", { from: currentProject, to: targetPath });
 
     // Save current project UI state
     if (currentProject) {
@@ -524,6 +572,7 @@ function App() {
         <ProjectSelectionPage
           sidecarPort={sidecar.port}
           onProjectSelect={(projectDir) => {
+            capture("project_select", { path: projectDir });
             clearEvents();
             setOutlineData(null);
             setSelectedNavId(undefined);
@@ -577,6 +626,11 @@ function App() {
             <ArtifactPanel
               content={previewContent?.content}
               title={previewContent?.title}
+              locale={previewLocale}
+              onLocaleChange={(l) => {
+                capture("locale_switch", { from: previewLocale, to: l });
+                setPreviewLocale(l);
+              }}
             >
               {outlineData ? (
                 <OutlineEditor
@@ -605,7 +659,10 @@ function App() {
             generateProgress={agentState.generateProgress}
             events={agentState.events}
             selectedDocId={selectedNavId}
-            onSelectDoc={setSelectedNavId}
+            onSelectDoc={(id) => {
+              capture("doc_navigate", { doc_id: id });
+              setSelectedNavId(id);
+            }}
           />
         }
       />

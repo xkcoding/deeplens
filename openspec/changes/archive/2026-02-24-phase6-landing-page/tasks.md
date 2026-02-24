@@ -39,7 +39,7 @@
 - [x] 5.2 通过环境变量注入 project key（`PUBLIC_POSTHOG_KEY`）
 - [x] 5.3 开发环境不加载（`import.meta.env.PROD` 判断）
 - [x] 5.4 实现自定义事件：`cta_click`, `nav_click`, `lang_switch`, `faq_toggle`
-- [ ] 5.5 PostHog 后台配置下载漏斗（Hero View → CTA Click → GitHub Release）
+- [x] 5.5 PostHog 后台配置下载漏斗（Hero View → CTA Click → GitHub Release）
 
 ## Group 6: Desktop App 埋点（PostHog）
 
@@ -54,15 +54,15 @@
 
 ## Group 7: Cloudflare Pages 部署
 
-- [ ] 7.1 配置 Cloudflare Pages 项目（连接 GitHub 仓库，设置 build command）
-- [ ] 7.2 配置自定义域名
-- [ ] 7.3 配置环境变量（PostHog project key）
-- [ ] 7.4 验证部署：中英文页面、主题切换、埋点上报
+- [x] 7.1 配置 Cloudflare Pages 项目（连接 GitHub 仓库，设置 build command）
+- [x] 7.2 配置自定义域名
+- [x] 7.3 配置环境变量（PostHog project key）
+- [x] 7.4 验证部署：中英文页面、主题切换、埋点上报
 
 ## Group 8: 验证
 
 - [x] 8.1 本地 `astro dev` 运行无报错
 - [x] 8.2 `astro build` 构建成功
-- [ ] 8.3 响应式 + 主题切换 + 语言切换功能验证
-- [ ] 8.4 PostHog Landing Page 事件上报验证（PV + 自定义事件）
-- [ ] 8.5 PostHog Desktop 事件上报验证（业务事件 + UI 交互事件）
+- [x] 8.3 响应式 + 主题切换 + 语言切换功能验证
+- [x] 8.4 PostHog Landing Page 事件上报验证（PV + 自定义事件）
+- [x] 8.5 PostHog Desktop 事件上报验证（业务事件 + UI 交互事件）

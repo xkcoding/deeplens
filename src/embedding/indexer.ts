@@ -7,8 +7,9 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import chalk from "chalk";
-import ignore, { type Ignore } from "ignore";
+import type { Ignore } from "ignore";
 import { VectorStore } from "../vector/store.js";
+import { loadIgnoreRules } from "../config/ignore.js";
 import type { ChunkWithEmbedding } from "../vector/store.js";
 import { EmbeddingClient } from "./client.js";
 import { chunkMarkdown, chunkCode } from "./chunker.js";
@@ -48,52 +49,7 @@ const DEFAULT_CODE_EXTENSIONS = [
   ".svelte",
 ];
 
-const DEFAULT_EXCLUDE_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "dist-ui",
-  "build",
-  "out",
-  ".next",
-  ".output",
-  ".nuxt",
-  "target",
-  "vendor",
-  "__pycache__",
-  ".deeplens",
-  "coverage",
-  ".turbo",
-  ".vercel",
-  ".cache",
-  "binaries",
-]);
-
 const EMBED_BATCH_SIZE = 20;
-
-// ── Ignore rules ──────────────────────────────────
-
-/**
- * Load ignore rules for code file indexing.
- * Applies DEFAULT_EXCLUDE_DIRS + .deeplensignore only.
- */
-async function loadIgnoreRules(projectRoot: string): Promise<Ignore> {
-  const ig = ignore();
-
-  // Always ignore common heavy/irrelevant directories
-  for (const dir of DEFAULT_EXCLUDE_DIRS) {
-    ig.add(dir);
-  }
-
-  // Read .deeplensignore (user-defined indexing exclusions)
-  const deeplensIgnorePath = path.join(projectRoot, ".deeplensignore");
-  if (existsSync(deeplensIgnorePath)) {
-    const content = await fs.readFile(deeplensIgnorePath, "utf-8");
-    ig.add(content);
-  }
-
-  return ig;
-}
 
 // ── Indexer ────────────────────────────────────────
 
@@ -126,8 +82,11 @@ export class Indexer {
     // Scan files
     const files: FileEntry[] = [];
 
-    // Scan markdown docs (only skip VitePress artifacts, not .deeplensignore)
-    const mdFiles = await scanDirectory(docsDir, ".md");
+    // Scan English markdown docs only (zh/ docs are not indexed for search).
+    // Falls back to scanning the full docs dir if en/ doesn't exist (pre-i18n compat).
+    const enDocsDir = path.join(docsDir, "en");
+    const mdScanDir = existsSync(enDocsDir) ? enDocsDir : docsDir;
+    const mdFiles = await scanDirectory(mdScanDir, ".md");
     for (const absPath of mdFiles) {
       files.push({
         relativePath: path.relative(options.projectRoot, absPath),

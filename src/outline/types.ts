@@ -28,7 +28,7 @@ const domainSchema = z.object({
   description: z.string().min(1),
   reasoning: z.string().min(1, "reasoning must explain why these files form a coherent domain"),
   files: z.array(fileEntrySchema).min(1),
-  sub_concepts: z.array(subConceptSchema).min(2, "each domain must have at least 2 sub_concepts").optional(),
+  sub_concepts: z.array(subConceptSchema).min(1, "each domain must have at least 1 sub_concept").optional(),
 });
 
 const overviewSchema = z.object({

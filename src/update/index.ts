@@ -9,6 +9,7 @@ import path from "node:path";
 import { getChangedFiles, getHeadCommit } from "./diff.js";
 import { traceImpact, type ImpactResult } from "./impact.js";
 import { runGenerator, runOverviewGenerator, runSummaryGenerator } from "../agent/generator.js";
+import { runTranslator } from "../agent/translator.js";
 import { sanitizeMermaidBlocks } from "../vitepress/sanitize-mermaid.js";
 import { outlineSchema, type Outline } from "../outline/types.js";
 import { Indexer } from "../embedding/indexer.js";
@@ -127,6 +128,11 @@ export async function runIncrementalUpdate(
       onEvent: onEvent as AgentEventCallback | undefined,
     });
 
+    // Translation — translate all English docs to Chinese
+    await runTranslator(outline, projectRoot, {
+      onEvent: onEvent as AgentEventCallback | undefined,
+    });
+
     // Post-generation Mermaid syntax fix
     const docsDir = path.join(deeplensDir, "docs");
     await sanitizeMermaidBlocks(docsDir);
@@ -209,6 +215,12 @@ export async function runIncrementalUpdate(
     onEvent: onEvent as AgentEventCallback | undefined,
   });
 
+  // Phase 3b: Translate affected domains
+  await runTranslator(outline, projectRoot, {
+    domainFilter: impact.affectedDomains,
+    onEvent: onEvent as AgentEventCallback | undefined,
+  });
+
   // Phase 4: Delete old chunks for affected domains and re-index
   const config = loadConfig();
   validateOpenRouterConfig(config);
@@ -219,9 +231,10 @@ export async function runIncrementalUpdate(
     const store = indexer.getStore();
 
     // Delete old chunks for affected domain doc files (per-domain events)
+    // Only English docs are indexed — Chinese docs are not in the vector store
     for (const domainId of impact.affectedDomains) {
       let deletedFiles = 0;
-      const domainDocsDir = path.join(deeplensDir, "docs", "domains", domainId);
+      const domainDocsDir = path.join(deeplensDir, "docs", "en", "domains", domainId);
       if (existsSync(domainDocsDir)) {
         const docFiles = await fs.readdir(domainDocsDir);
         for (const docFile of docFiles) {
@@ -229,6 +242,7 @@ export async function runIncrementalUpdate(
             const relativePath = path.join(
               ".deeplens",
               "docs",
+              "en",
               "domains",
               domainId,
               docFile,

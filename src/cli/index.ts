@@ -6,11 +6,12 @@ import chalk from "chalk";
 import { loadConfig, validateOpenRouterConfig } from "../config/env.js";
 import { runExplorer } from "../agent/explorer.js";
 import { runGenerator, runOverviewGenerator, runSummaryGenerator } from "../agent/generator.js";
+import { runTranslator } from "../agent/translator.js";
 import { reviewOutline } from "../outline/review.js";
 import { outlineSchema } from "../outline/types.js";
 import { scaffoldVitePress } from "../vitepress/scaffold.js";
 import { generateSidebar } from "../vitepress/sidebar.js";
-import { SIDEBAR_PLACEHOLDER } from "../vitepress/scaffold.js";
+import { EN_SIDEBAR_PLACEHOLDER, ZH_SIDEBAR_PLACEHOLDER } from "../vitepress/scaffold.js";
 import { sanitizeMermaidBlocks } from "../vitepress/sanitize-mermaid.js";
 import { startPreviewServer } from "../vitepress/server.js";
 import { Indexer } from "../embedding/indexer.js";
@@ -43,10 +44,10 @@ program
     let outline: Outline;
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      console.log(chalk.cyan("\n[1/4] Running exploration agent..."));
+      console.log(chalk.cyan("\n[1/6] Running exploration agent..."));
       outline = await runExplorer(absProjectPath);
 
-      console.log(chalk.cyan("\n[2/4] Outline review"));
+      console.log(chalk.cyan("\n[2/6] Outline review"));
       const review = await reviewOutline(outline, outputDir);
 
       if (review.action === "abort") {
@@ -63,16 +64,20 @@ program
     }
 
     // Generation phase
-    console.log(chalk.cyan("\n[3/4] Generating documentation..."));
+    console.log(chalk.cyan("\n[3/6] Generating documentation..."));
     await runGenerator(outline, absProjectPath);
 
     // Overview generation (index.md) — synthesized from domain docs
-    console.log(chalk.cyan("\nGenerating project overview..."));
+    console.log(chalk.cyan("\n[4/6] Generating project overview..."));
     await runOverviewGenerator(outline, absProjectPath);
 
     // Summary generation (summary.md) — project wrap-up page
-    console.log(chalk.cyan("\nGenerating project summary..."));
+    console.log(chalk.cyan("\n[5/6] Generating project summary..."));
     await runSummaryGenerator(outline, absProjectPath);
+
+    // Translation phase — translate all English docs to Chinese
+    console.log(chalk.cyan("\n[6/6] Translating documentation..."));
+    await runTranslator(outline, absProjectPath);
 
     // Post-generation Mermaid syntax fix
     const mermaidFixed = await sanitizeMermaidBlocks(docsDir);
@@ -80,16 +85,17 @@ program
       console.log(chalk.dim(`Fixed Mermaid syntax in ${mermaidFixed} file(s).`));
     }
 
-    // VitePress scaffolding + sidebar injection
+    // VitePress scaffolding + sidebar injection (bilingual)
     await scaffoldVitePress(docsDir, outline.project_name);
-    const sidebar = generateSidebar(outline, docsDir);
-    await injectSidebar(docsDir, sidebar);
+    const enSidebar = generateSidebar(outline, docsDir, "en");
+    const zhSidebar = generateSidebar(outline, docsDir, "zh");
+    await injectSidebar(docsDir, enSidebar, zhSidebar);
 
     console.log(chalk.green("\nDocumentation generated successfully."));
 
     // Preview phase
     if (options.preview) {
-      console.log(chalk.cyan("\n[4/4] Starting preview server..."));
+      console.log(chalk.cyan("\nStarting preview server..."));
       await startPreviewServer(docsDir);
     } else {
       console.log(chalk.dim("Preview skipped. Run `deeplens preview` to start later."));
@@ -180,8 +186,9 @@ program
     }
 
     await scaffoldVitePress(docsDir, outline.project_name);
-    const sidebar = generateSidebar(outline, docsDir);
-    await injectSidebar(docsDir, sidebar);
+    const enSidebar = generateSidebar(outline, docsDir, "en");
+    const zhSidebar = generateSidebar(outline, docsDir, "zh");
+    await injectSidebar(docsDir, enSidebar, zhSidebar);
 
     console.log(chalk.green(`\nDocumentation generated to ${docsDir}`));
   });
@@ -346,14 +353,14 @@ program
 // ── Sidebar injection helper ─────────────────────────────────────────
 async function injectSidebar(
   docsDir: string,
-  sidebar: Record<string, unknown>,
+  enSidebar: Record<string, unknown>,
+  zhSidebar: Record<string, unknown>,
 ): Promise<void> {
   const configPath = path.join(docsDir, ".vitepress", "config.mts");
   const content = await readFile(configPath, "utf-8");
-  const injected = content.replace(
-    SIDEBAR_PLACEHOLDER,
-    JSON.stringify(sidebar, null, 6),
-  );
+  const injected = content
+    .replace(EN_SIDEBAR_PLACEHOLDER, JSON.stringify(enSidebar, null, 6))
+    .replace(ZH_SIDEBAR_PLACEHOLDER, JSON.stringify(zhSidebar, null, 6));
   const { writeFile: wf } = await import("node:fs/promises");
   await wf(configPath, injected, "utf-8");
 }

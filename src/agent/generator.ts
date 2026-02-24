@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createGeneratorServer } from "./tools.js";
+import { createGeneratorServer, createSynthesizerServer } from "./tools.js";
 import { getGeneratorPrompt } from "../prompts/generator.js";
 import { getOverviewPrompt } from "../prompts/overview.js";
 import { getSummaryPrompt } from "../prompts/summary.js";
@@ -74,7 +74,7 @@ export async function runGenerator(
     options: {
       systemPrompt: getGeneratorPrompt(filteredOutline),
       tools: [],
-      maxTurns: Math.max(60, totalDomains * 20),
+      maxTurns: Math.max(80, totalDomains * 30),
       mcpServers: { deeplens: createGeneratorServer(projectRoot) },
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
@@ -122,7 +122,7 @@ export async function runGenerator(
               // When a NEW domain's hub is written, the PREVIOUS domain is fully complete
               // (hub + all spokes done, since generator processes domains sequentially).
               const domainHubMatch = filePath.match(
-                /^domains\/([^/]+)\/index\.md$/,
+                /^en\/domains\/([^/]+)\/index\.md$/,
               );
               if (domainHubMatch) {
                 const domainId = domainHubMatch[1];
@@ -202,9 +202,9 @@ export async function runOverviewGenerator(
     console.log("\nGenerating project overview (index.md)...");
   }
 
-  // Dynamic maxTurns: read N domain hubs + grep/snippet lookups + render_mermaid + write + thinking
+  // Dynamic maxTurns: read N domain hubs + grep/snippet lookups + render_mermaid (arch + key flows) + write + thinking
   const domainCount = outline.knowledge_graph.length;
-  const overviewMaxTurns = Math.max(30, domainCount * 3 + 15);
+  const overviewMaxTurns = Math.max(40, domainCount * 4 + 25);
 
   // Clean env: remove CLAUDECODE to avoid "nested session" rejection
   const cleanEnv = { ...process.env };
@@ -216,7 +216,7 @@ export async function runOverviewGenerator(
       systemPrompt: getOverviewPrompt(outline),
       tools: [],
       maxTurns: overviewMaxTurns,
-      mcpServers: { deeplens: createGeneratorServer(projectRoot) },
+      mcpServers: { deeplens: createSynthesizerServer(projectRoot) },
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
       persistSession: false,
@@ -290,7 +290,7 @@ export async function runOverviewGenerator(
       data: { phase: "overview", completed: 1, total: 1, status: "complete" },
     });
   } else {
-    console.log("\n\u2713 Overview (index.md) generated.");
+    console.log("\n\u2713 Overview (en/index.md) generated.");
   }
 }
 
@@ -330,7 +330,7 @@ export async function runSummaryGenerator(
       systemPrompt: getSummaryPrompt(outline),
       tools: [],
       maxTurns: summaryMaxTurns,
-      mcpServers: { deeplens: createGeneratorServer(projectRoot) },
+      mcpServers: { deeplens: createSynthesizerServer(projectRoot) },
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
       persistSession: false,
@@ -404,6 +404,6 @@ export async function runSummaryGenerator(
       data: { phase: "summary", completed: 1, total: 1, status: "complete" },
     });
   } else {
-    console.log("\n\u2713 Summary (summary.md) generated.");
+    console.log("\n\u2713 Summary (en/summary.md) generated.");
   }
 }

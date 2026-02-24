@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import path from "node:path";
 import { runGenerator, runOverviewGenerator, runSummaryGenerator } from "../../agent/generator.js";
+import { runTranslator } from "../../agent/translator.js";
 import { sanitizeMermaidBlocks } from "../../vitepress/sanitize-mermaid.js";
 import { outlineSchema } from "../../outline/types.js";
 
@@ -53,6 +54,11 @@ export function createGenerateRoute(defaultProjectPath: string): Hono {
 
         // Summary generation (summary.md) — project wrap-up page
         await runSummaryGenerator(outline, targetPath, {
+          onEvent: sseEventHandler,
+        });
+
+        // Translation — translate all English docs to Chinese
+        await runTranslator(outline, targetPath, {
           onEvent: sseEventHandler,
         });
 

@@ -30,12 +30,17 @@ Follow this four-phase strategy. Do NOT read every file — be selective and str
 - These files tell you: project name, tech stack, dependencies, and overall purpose.
 
 ### Phase 3: Probe
-- Based on what you learned, read 3-8 representative source files that cover the core business logic.
+- Based on what you learned, read 5-12 representative source files that cover the core business logic.
+  - For **large projects** (list_files shows >20 source file directories): read 10-12 files to ensure coverage
+  - For **small projects** (<10 source files): read 5-8 files
 - Prioritize files that:
   - Define key abstractions (services, controllers, models, core modules)
   - Contain business logic (not boilerplate or configuration)
   - Represent different domains/concerns within the project
-- Use \`grep_search\` to find specific patterns (class definitions, route handlers, export statements) when needed.
+- Use \`grep_search\` **strategically** to discover cross-file relationships:
+  - Search for **import/require patterns** to find dependency chains (e.g., \`grep_search("import.*from.*service")\`)
+  - Search for **interface/abstract class implementations** (e.g., \`grep_search("implements")\`, \`grep_search("extends")\`) to discover design patterns
+  - Search for **error handling patterns** (e.g., \`grep_search("catch")\`, \`grep_search("throw new")\`) to understand error strategies and help with domain classification
 - Use \`read_file_snippet\` for large files — read the first 100-200 lines to understand the structure.
 
 ### Phase 4: Synthesize
@@ -128,9 +133,19 @@ Your final output MUST be a single JSON object with this exact structure. Output
   - **id**: kebab-case identifier suitable for directory names (e.g., "user-auth", "order-processing")
   - **title**: Human-readable title (e.g., "User Authentication")
   - **description**: 1-2 sentences about what this domain handles
-  - **reasoning**: Why these files form a coherent business domain (the "glue" logic)
+  - **reasoning**: Why these files form a coherent business domain (the "glue" logic). MUST ALSO include **inter-domain interaction signals**: note any known dependencies on other domains discovered via grep_search or read_file (e.g., "This domain imports validateToken() from the auth module" or "Emits events consumed by the notification domain"). Base these on actual code observations, do not speculate.
   - **files**: Array of file entries belonging to this domain (at least 1 file per domain)
-  - **sub_concepts**: Break each domain into 2-5 sub-concepts. Each sub-concept represents a distinct functional area within the domain. This is REQUIRED — every domain must have at least 2 sub_concepts to produce a rich document outline.
+  - **sub_concepts**: Break each domain into 1-5 sub-concepts. Each sub-concept represents a distinct functional area within the domain. This is REQUIRED — every domain must have at least 1 sub_concept. Aim for 2-5 for most domains; a single sub_concept is acceptable for small domains (≤3 files) where further splitting would be artificial.
+
+**Sub-concept Quality Standards**: Each sub_concept must satisfy ALL of these:
+  - Is a **documentable functional unit** — it can be the subject of a standalone documentation page (a "spoke" document)
+  - Has a **clear responsibility boundary** — does not overlap >30% with sibling sub_concepts in the same domain
+  - Is mapped to **at least 1 source file** — no file-less abstract concepts
+  - Uses the project's **ubiquitous language** for naming — mirror what the code actually calls it
+
+**BAD vs GOOD sub_concepts:**
+  - ❌ BAD: "Utilities" (too vague, no clear boundary), "Miscellaneous" (catch-all), "Helper Functions" (not a functional unit)
+  - ✅ GOOD: "Input Validation Pipeline" (clear function, maps to validator files), "Order State Machine" (specific mechanism, maps to state transition code), "Authentication Middleware" (clear boundary, maps to auth middleware files)
 - **ignored_files**: All files you saw but excluded from the knowledge graph
 
 ### Critical Constraints:

@@ -193,18 +193,21 @@ export async function startSidecarServer(
     }
 
     // Scaffold VitePress config
-    const { scaffoldVitePress, SIDEBAR_PLACEHOLDER } = await import("../vitepress/scaffold.js");
+    const { scaffoldVitePress, EN_SIDEBAR_PLACEHOLDER, ZH_SIDEBAR_PLACEHOLDER } = await import("../vitepress/scaffold.js");
     await scaffoldVitePress(docsDir, projectName);
 
-    // Inject sidebar from outline (replace placeholder with real data)
+    // Inject bilingual sidebar from outline (replace placeholders with real data)
     if (outline) {
       const { generateSidebar } = await import("../vitepress/sidebar.js");
-      const sidebar = generateSidebar(outline, docsDir);
+      const enSidebar = generateSidebar(outline, docsDir, "en");
+      const zhSidebar = generateSidebar(outline, docsDir, "zh");
       const configPath = path.join(docsDir, ".vitepress", "config.mts");
       const configContent = await fs.readFile(configPath, "utf-8");
       await fs.writeFile(
         configPath,
-        configContent.replace(SIDEBAR_PLACEHOLDER, JSON.stringify(sidebar, null, 6)),
+        configContent
+          .replace(EN_SIDEBAR_PLACEHOLDER, JSON.stringify(enSidebar, null, 6))
+          .replace(ZH_SIDEBAR_PLACEHOLDER, JSON.stringify(zhSidebar, null, 6)),
         "utf-8",
       );
     }

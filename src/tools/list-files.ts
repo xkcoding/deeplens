@@ -4,10 +4,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { ensureWithinRoot } from "./read-file.js";
-
-const EXCLUDED_DIRS = new Set([
-  ".git", "node_modules", "__pycache__", "dist", "build", ".next", "target", "vendor",
-]);
+import { DEFAULT_EXCLUDE_DIRS } from "../config/ignore.js";
 
 export async function listFiles(
   projectRoot: string,
@@ -64,7 +61,7 @@ async function buildTree(
 
   // Filter out excluded directories
   const filtered = entries.filter(
-    (e) => !(e.isDirectory() && EXCLUDED_DIRS.has(e.name)),
+    (e) => !(e.isDirectory() && DEFAULT_EXCLUDE_DIRS.has(e.name)),
   );
 
   for (let i = 0; i < filtered.length; i++) {

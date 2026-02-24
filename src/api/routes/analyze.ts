@@ -10,6 +10,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { runExplorer } from "../../agent/explorer.js";
 import { runGenerator, runOverviewGenerator, runSummaryGenerator } from "../../agent/generator.js";
+import { runTranslator } from "../../agent/translator.js";
 import { sanitizeMermaidBlocks } from "../../vitepress/sanitize-mermaid.js";
 import { registerProject, updateProject } from "../../projects/registry.js";
 import type { Outline } from "../../outline/types.js";
@@ -159,6 +160,7 @@ export function createAnalyzeRoute(
           }
         };
 
+        console.log("[analyze] Starting generator...");
         await runGenerator(confirmedOutline, targetPath, {
           onEvent: sseEventHandler,
         });
@@ -171,6 +173,7 @@ export function createAnalyzeRoute(
         });
         await appendSession(sessionPath, "progress", overviewStartData);
 
+        console.log("[analyze] Starting overview generator...");
         await runOverviewGenerator(confirmedOutline, targetPath, {
           onEvent: sseEventHandler,
         });
@@ -183,7 +186,21 @@ export function createAnalyzeRoute(
         });
         await appendSession(sessionPath, "progress", summaryStartData);
 
+        console.log("[analyze] Starting summary generator...");
         await runSummaryGenerator(confirmedOutline, targetPath, {
+          onEvent: sseEventHandler,
+        });
+
+        // Phase 5: Translate — translate all English docs to Chinese
+        const translateStartData = { phase: "translate", status: "started" };
+        await stream.writeSSE({
+          event: "progress",
+          data: JSON.stringify(translateStartData),
+        });
+        await appendSession(sessionPath, "progress", translateStartData);
+
+        console.log("[analyze] Starting translator...");
+        await runTranslator(confirmedOutline, targetPath, {
           onEvent: sseEventHandler,
         });
 

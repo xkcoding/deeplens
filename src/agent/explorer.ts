@@ -1,9 +1,37 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { createExplorerServer } from "./tools.js";
 import { getExplorerPrompt } from "../prompts/explorer.js";
 import { parseOutline } from "../outline/parser.js";
+import { loadIgnoreRules } from "../config/ignore.js";
 import type { Outline } from "../outline/types.js";
 import type { AgentEventCallback } from "./events.js";
+
+/**
+ * Estimate project complexity by counting top-level source directories.
+ * Respects DEFAULT_EXCLUDE_DIRS + .deeplensignore.
+ * Used to dynamically calculate Explorer maxTurns.
+ */
+async function estimateProjectComplexity(projectRoot: string): Promise<number> {
+  try {
+    const ig = await loadIgnoreRules(projectRoot);
+    const entries = await readdir(projectRoot);
+    let srcDirCount = 0;
+    for (const entry of entries) {
+      if (ig.ignores(entry)) continue;
+      try {
+        const s = await stat(join(projectRoot, entry));
+        if (s.isDirectory()) srcDirCount++;
+      } catch {
+        // skip unreadable entries
+      }
+    }
+    return srcDirCount;
+  } catch {
+    return 5; // fallback for unreadable project root
+  }
+}
 
 const MAX_RETRIES = 2;
 
@@ -22,6 +50,12 @@ export async function runExplorer(
   let lastError = "";
   let previousRawOutput = "";
   const onEvent = options?.onEvent;
+
+  // Dynamic maxTurns: estimate project complexity from top-level directory count
+  // Each source dir may need: list_files + read_file + grep_search = ~3-5 turns
+  // Plus anchor reads (~5), synthesize (~2), and buffer for retries
+  const complexity = await estimateProjectComplexity(projectRoot);
+  const explorerMaxTurns = Math.max(50, complexity * 10 + 30);
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     let prompt: string;
@@ -43,7 +77,7 @@ Please fix the validation issues in the JSON above and output ONLY the corrected
 
     let rawOutput: string;
     try {
-      rawOutput = await runExplorerQuery(projectRoot, prompt, onEvent);
+      rawOutput = await runExplorerQuery(projectRoot, prompt, explorerMaxTurns, onEvent);
     } catch (err) {
       // If max_turns hit on retry, surface a clear error
       const errMsg = (err as Error).message;
@@ -99,6 +133,7 @@ Please fix the validation issues in the JSON above and output ONLY the corrected
 async function runExplorerQuery(
   projectRoot: string,
   prompt: string,
+  maxTurns: number,
   onEvent?: AgentEventCallback,
 ): Promise<string> {
   let resultText = "";
@@ -112,7 +147,7 @@ async function runExplorerQuery(
     options: {
       systemPrompt: getExplorerPrompt(projectRoot),
       tools: [],
-      maxTurns: 200,
+      maxTurns,
       mcpServers: { deeplens: createExplorerServer(projectRoot) },
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,

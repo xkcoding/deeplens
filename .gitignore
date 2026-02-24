@@ -22,3 +22,8 @@ ui/dist-src/
 ui/dist-node/
 ui/*.tsbuildinfo
 .playwright-mcp/
+
+# Landing page (Astro)
+.astro/
+site/node_modules/
+site/dist/
